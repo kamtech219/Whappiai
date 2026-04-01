@@ -716,6 +716,28 @@ class AIService {
             // Prepare messages array
             let finalSystemPrompt = (systemPrompt || ai_prompt || 'You are a helpful assistant.');
 
+            // Inject timezone context
+            let userTimezone = 'UTC';
+            if (user.owner_email) {
+                const owner = User.findByEmail(user.owner_email);
+                if (owner && owner.timezone) {
+                    userTimezone = owner.timezone;
+                }
+            } else if (user.timezone) {
+                userTimezone = user.timezone; // fallback if passed directly
+            }
+
+            try {
+                // Get localized time based on user's timezone using native JS
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('fr-FR', { timeZone: userTimezone, hour: '2-digit', minute: '2-digit' });
+                const dateString = now.toLocaleDateString('fr-FR', { timeZone: userTimezone });
+
+                finalSystemPrompt += `\n\n[CONTEXTE TEMPOREL]\nL'heure locale actuelle est ${timeString} le ${dateString} (Fuseau horaire: ${userTimezone}). Utilise cette information si l'utilisateur demande l'heure ou pour des calculs de dates/rendez-vous.`;
+            } catch (err) {
+                log(`Failed to inject timezone context: ${err.message}`, user.id, { timezone: userTimezone }, 'WARN');
+            }
+
             // Inject strict constraints (user requirements)
             if (ai_constraints) {
                 finalSystemPrompt += "\n\nEXIGENCES STRICTES À RESPECTER :\n" + ai_constraints;

@@ -165,6 +165,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
                 log(`Authenticated user: ${finalEmail} (role: ${role})`, 'AUTH', { email: finalEmail, role }, 'INFO');
 
+                // Capture user timezone from headers if available
+                const userTimezone = req.headers['x-user-timezone'];
+
                 // Auto-create or update user from Clerk
                 // This ensures that anyone authenticated via Clerk has a local record
                 // We sync on every request if needed, or at least ensure it exists
@@ -175,14 +178,18 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
                         email: finalEmail,
                         name: req.auth.sessionClaims?.name || req.auth.sessionClaims?.full_name || finalEmail.split('@')[0],
                         imageUrl: req.auth.sessionClaims?.image_url,
-                        role: role
+                        role: role,
+                        timezone: userTimezone
                     });
-                } else if (user.role !== role) {
-                    log(`Updating role for ${finalEmail}: ${user.role} -> ${role}`, 'AUTH');
+                } else if (user.role !== role || (userTimezone && user.timezone !== userTimezone)) {
+                    log(`Updating details for ${finalEmail}...`, 'AUTH');
                     user = await User.create({
                         id: req.auth.userId,
                         email: finalEmail,
-                        role: role
+                        name: req.auth.sessionClaims?.name || req.auth.sessionClaims?.full_name || finalEmail.split('@')[0],
+                        imageUrl: req.auth.sessionClaims?.image_url,
+                        role: role,
+                        timezone: userTimezone
                     });
                 }
 
@@ -317,12 +324,15 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             const existingUser = User.findById(id) || User.findByEmail(email);
             const isNewUser = !existingUser;
 
+            const userTimezone = req.headers['x-user-timezone'];
+
             const user = await User.create({
                 id,
                 email: email.toLowerCase().trim(),
                 name,
                 role,
-                imageUrl
+                imageUrl,
+                timezone: userTimezone
             });
 
             // Give welcome credits to new users (idempotent - safe to call each time)

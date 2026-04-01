@@ -88,6 +88,9 @@ async function requireClerkAuth(req, res, next) {
     // Sync with local SQLite user
     let localUser = User.findById(clerkUser.id) || User.findByEmail(email);
     
+    // Capture user timezone from headers if available
+    const userTimezone = req.headers['x-user-timezone'];
+
     // Auto-create or update user from Clerk
     // This ensures that anyone authenticated via Clerk has a local record
     log(`Syncing user ${email} from Clerk...`, 'AUTH', { email, id: clerkUser.id }, 'DEBUG');
@@ -97,10 +100,21 @@ async function requireClerkAuth(req, res, next) {
         email: email,
         name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
         imageUrl: clerkUser.imageUrl,
-        role: targetRole // Use targetRole which includes auto-promotion
+        role: targetRole, // Use targetRole which includes auto-promotion
+        timezone: userTimezone // Optional fields can be passed directly, we'll update User.create to handle it if needed
     });
 
     localUser = User.findById(clerkUser.id);
+
+    // Update timezone for existing user if it changed
+    if (localUser && userTimezone && localUser.timezone !== userTimezone) {
+        try {
+            User.update(localUser.id, { timezone: userTimezone });
+            localUser.timezone = userTimezone;
+        } catch (err) {
+            log(`Failed to update timezone for ${email}: ${err.message}`, 'AUTH', null, 'WARN');
+        }
+    }
 
     if (!localUser) {
         log(`Failed to sync/create local user for ${email}`, 'AUTH', null, 'ERROR');
