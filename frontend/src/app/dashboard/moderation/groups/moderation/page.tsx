@@ -49,6 +49,42 @@ function GroupModerationContent() {
     fetchGroups()
   }, [fetchGroups])
 
+  const handleToggle = async (groupId: string, field: string, value: boolean) => {
+    if (!sessionId) return
+
+    // Optimistic UI update
+    setGroups(prev => prev.map(g => {
+      if (g.id === groupId) {
+        return {
+          ...g,
+          settings: {
+            ...(g.settings || {}),
+            [field]: value ? 1 : 0
+          }
+        }
+      }
+      return g
+    }))
+
+    try {
+      const token = await getToken()
+      const group = groups.find(g => g.id === groupId)
+      if (!group) return
+
+      const newSettings = {
+        ...(group.settings || {}),
+        [field]: value ? 1 : 0
+      }
+
+      await api.sessions.updateGroupSettings(sessionId, groupId, newSettings, token || undefined)
+      toast.success("Paramètres mis à jour")
+    } catch (e: any) {
+      toast.error("Erreur lors de la mise à jour")
+      // Revert optimistic update
+      fetchGroups()
+    }
+  }
+
   const filtered = groups.filter(g =>
     ensureString(g.subject || g.name).toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -85,7 +121,17 @@ function GroupModerationContent() {
             <CardContent className="p-4 pt-0 space-y-4">
                <div className="flex items-center justify-between">
                   <span className="text-xs">Mod&eacute;ration Active</span>
-                  <Switch checked={true} />
+                  <Switch
+                    checked={!!group.settings?.is_active}
+                    onCheckedChange={(checked) => handleToggle(group.id, 'is_active', checked)}
+                  />
+               </div>
+               <div className="flex items-center justify-between">
+                  <span className="text-xs">Assistant IA (Whappi)</span>
+                  <Switch
+                    checked={!!group.settings?.ai_assistant_enabled}
+                    onCheckedChange={(checked) => handleToggle(group.id, 'ai_assistant_enabled', checked)}
+                  />
                </div>
             </CardContent>
           </Card>
