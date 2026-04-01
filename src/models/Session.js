@@ -155,7 +155,8 @@ class Session {
             reply_delay, read_on_reply, reject_calls,
             random_protection_enabled, random_protection_rate,
             constraints, session_window, respond_to_tags,
-            delay_min, delay_max
+            delay_min, delay_max,
+            ai_unknown_only, ai_business_hours, ai_business_start, ai_business_end
         } = aiConfig;
 
         // Handle undefined values to prevent overwriting existing ones with null if not provided
@@ -177,6 +178,7 @@ class Session {
                 ai_random_protection_enabled = ?, ai_random_protection_rate = ?,
                 ai_constraints = ?, ai_session_window = ?, ai_respond_to_tags = ?,
                 ai_delay_min = ?, ai_delay_max = ?,
+                ai_unknown_only = ?, ai_business_hours = ?, ai_business_start = ?, ai_business_end = ?,
                 updated_at = datetime('now')
             WHERE id = ?
         `);
@@ -203,6 +205,10 @@ class Session {
             respond_to_tags !== undefined ? (respond_to_tags ? 1 : 0) : existing.ai_respond_to_tags,
             delay_min !== undefined ? delay_min : (existing.ai_delay_min ?? 1),
             delay_max !== undefined ? delay_max : (existing.ai_delay_max ?? 5),
+            ai_unknown_only !== undefined ? (ai_unknown_only ? 1 : 0) : existing.ai_unknown_only,
+            ai_business_hours !== undefined ? (ai_business_hours ? 1 : 0) : existing.ai_business_hours,
+            ai_business_start !== undefined ? ai_business_start : (existing.ai_business_start ?? 9),
+            ai_business_end !== undefined ? ai_business_end : (existing.ai_business_end ?? 18),
             sessionId
         );
         return this.findById(sessionId);
