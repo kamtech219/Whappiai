@@ -14,7 +14,7 @@ class User {
      * @param {object} userData - User data
      * @returns {object} Created/Updated user
      */
-    static async create({ id, email, name = null, role = 'user', imageUrl = null, createdBy = null }) {
+    static async create({ id, email, name = null, role = 'user', imageUrl = null, createdBy = null, timezone = null }) {
         const MASTER_ADMIN_EMAIL = 'maruise237@gmail.com';
         const existingUser = this.findById(id) || this.findByEmail(email);
         
@@ -22,13 +22,18 @@ class User {
         const targetRole = email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? 'admin' : role;
         
         if (existingUser) {
-            // Update existing user if needed (e.g. name, role or image change)
+            // Update existing user if needed (e.g. name, role, image or timezone change)
             const stmt = db.prepare(`
                 UPDATE users 
-                SET email = ?, name = ?, role = ?, image_url = ?
+                SET email = ?, name = ?, role = ?, image_url = ?${timezone ? ', timezone = ?' : ''}
                 WHERE id = ?
             `);
-            stmt.run(email.toLowerCase(), name, targetRole || existingUser.role, imageUrl, existingUser.id);
+
+            const updateParams = [email.toLowerCase(), name, targetRole || existingUser.role, imageUrl];
+            if (timezone) updateParams.push(timezone);
+            updateParams.push(existingUser.id);
+
+            stmt.run(...updateParams);
             return this.findById(existingUser.id);
         }
 
@@ -39,14 +44,14 @@ class User {
             INSERT INTO users (
                 id, email, name, password, role, image_url, created_by, created_at, 
                 is_active, is_verified,
-                plan_id, plan_status, message_limit, message_used, subscription_expiry
+                plan_id, plan_status, message_limit, message_used, subscription_expiry, timezone
             )
             VALUES (?, ?, ?, 'CLERK_EXTERNAL_AUTH', ?, ?, ?, datetime('now'), 1, 1,
-                'trial', 'active', 60, 0, datetime('now', '+15 days')
+                'trial', 'active', 60, 0, datetime('now', '+15 days'), ?
             )
         `);
 
-        stmt.run(userId, normalizedEmail, name, targetRole, imageUrl, createdBy);
+        stmt.run(userId, normalizedEmail, name, targetRole, imageUrl, createdBy, timezone || 'UTC');
 
         // Add initial credit history
         try {

@@ -82,12 +82,23 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   try {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
+    // Detect user timezone safely
+    let userTimeZone = 'UTC';
+    if (typeof window !== 'undefined') {
+      try {
+        userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch (e) {
+        // Fallback if not supported
+      }
+    }
+
     const res = await fetch(url, {
       ...options,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true",
+        "x-user-timezone": userTimeZone,
         ...options.headers,
       },
     });
