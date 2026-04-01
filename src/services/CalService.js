@@ -77,7 +77,7 @@ class CalService {
         }
 
         // Add requested scopes, ensuring they are URL-encoded. Based on user requirements: booking operations.
-        const scopes = "READ_BOOKING WRITE_BOOKING READ_PROFILE WRITE_PROFILE";
+        const scopes = "BOOKING_READ BOOKING_WRITE PROFILE_READ PROFILE_WRITE";
 
         return `https://app.cal.com/auth/oauth2/authorize?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(finalRedirectUri)}&state=${userId}&response_type=code&scope=${encodeURIComponent(scopes)}`;
     }
