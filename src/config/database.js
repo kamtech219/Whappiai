@@ -95,6 +95,10 @@ function initializeSchema() {
             ai_random_protection_rate REAL DEFAULT 0.1,
             ai_session_window INTEGER DEFAULT 2,
             ai_respond_to_tags INTEGER DEFAULT 1,
+            ai_unknown_only INTEGER DEFAULT 0,
+            ai_business_hours INTEGER DEFAULT 0,
+            ai_business_start INTEGER DEFAULT 9,
+            ai_business_end INTEGER DEFAULT 18,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -412,6 +416,19 @@ function initializeSchema() {
         ];
         columns.forEach(col => {
             try { db.exec(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`); } catch (e) {}
+        });
+    });
+
+    // Migration: Cohabitation Pro/Perso
+    runner.run('whatsapp-sessions-cohabitation-v1', (db) => {
+        const columns = [
+            { name: 'ai_unknown_only', type: 'INTEGER DEFAULT 0' },
+            { name: 'ai_business_hours', type: 'INTEGER DEFAULT 0' },
+            { name: 'ai_business_start', type: 'INTEGER DEFAULT 9' },
+            { name: 'ai_business_end', type: 'INTEGER DEFAULT 18' }
+        ];
+        columns.forEach(col => {
+            try { db.exec(`ALTER TABLE whatsapp_sessions ADD COLUMN ${col.name} ${col.type}`); } catch (e) {}
         });
     });
 

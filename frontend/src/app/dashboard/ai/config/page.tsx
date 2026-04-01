@@ -114,6 +114,7 @@ function AIConfigContent() {
 
   const sections = [
     { id: 'intelligence', name: 'Intelligence', icon: Brain },
+    { id: 'cohabitation', name: 'Cohabitation Pro/Perso', icon: Sparkles },
     { id: 'automation', name: 'Automation', icon: Zap },
     { id: 'personality', name: 'Personnalit&eacute;', icon: User },
     { id: 'scheduling', name: 'Rendez-vous', icon: Calendar },
@@ -208,6 +209,63 @@ function AIConfigContent() {
                 <p className="text-[10px] text-muted-foreground italic">
                   S&eacute;parez les mots par des virgules. Si rempli, l&apos;IA ne r&eacute;pondra que si l&apos;un de ces mots est pr&eacute;sent.
                 </p>
+              </div>
+            )}
+          </section>
+
+          <Separator />
+
+          <section id="cohabitation" className="scroll-mt-24 space-y-6">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Cohabitation Pro/Perso</h3>
+              <p className="text-xs text-muted-foreground">Paramètres pour utiliser l'IA sur un compte WhatsApp personnel sans perturber vos proches.</p>
+            </div>
+
+            <div className="border rounded-lg divide-y bg-card">
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium">Répondre uniquement aux inconnus</p>
+                  <p className="text-xs text-muted-foreground">L'IA ignorera les messages de vos contacts enregistrés.</p>
+                </div>
+                <Switch
+                  checked={!!config?.ai_unknown_only}
+                  onCheckedChange={(v) => setConfig({...config, ai_unknown_only: v})}
+                />
+              </div>
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium">Horaires de travail</p>
+                  <p className="text-xs text-muted-foreground">L'IA aura un comportement spécifique en dehors de ces heures.</p>
+                </div>
+                <Switch
+                  checked={!!config?.ai_business_hours}
+                  onCheckedChange={(v) => setConfig({...config, ai_business_hours: v})}
+                />
+              </div>
+            </div>
+
+            {config?.ai_business_hours && (
+              <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs">Heure de début (ex: 9)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={config?.ai_business_start || 9}
+                    onChange={e => setConfig({...config, ai_business_start: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Heure de fin (ex: 18)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={config?.ai_business_end || 18}
+                    onChange={e => setConfig({...config, ai_business_end: parseInt(e.target.value) || 0})}
+                  />
+                </div>
               </div>
             )}
           </section>

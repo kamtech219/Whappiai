@@ -230,6 +230,10 @@ export function SessionCard({ session, onRefresh, onCreate }: { session?: any, o
                 <TabsTrigger value="code" className="text-xs">Pairing Code</TabsTrigger>
               </TabsList>
 
+              <div className="text-center px-4 mb-2 text-xs text-muted-foreground">
+                <p>Pour lier votre compte, ouvrez WhatsApp sur votre téléphone, allez dans <strong>Appareils connectés</strong> puis <strong>Lier un appareil</strong>.</p>
+              </div>
+
               <TabsContent value="qr" className="flex flex-col items-center space-y-4 pt-4">
                 <div className="relative aspect-square w-full max-w-[240px] border rounded-lg flex items-center justify-center bg-muted/20 overflow-hidden shadow-inner">
                   {qrCode ? (
@@ -237,30 +241,31 @@ export function SessionCard({ session, onRefresh, onCreate }: { session?: any, o
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-muted-foreground p-4 text-center">
                       <RefreshCw className={cn("h-6 w-6", loading && "animate-spin")} />
-                      <span className="text-[10px] font-medium">{loading ? "Génération..." : "Cliquez sur actualiser pour obtenir un QR code"}</span>
+                      <span className="text-[10px] font-medium">{loading ? "Génération en cours..." : "Cliquez sur actualiser pour afficher le QR code à scanner avec WhatsApp"}</span>
                     </div>
                   )}
                 </div>
                 <Button size="sm" variant="outline" className="h-9 px-6" onClick={handleRefreshQr} disabled={loading}>
                   <RefreshCw className={cn("h-3.5 w-3.5 mr-2", loading && "animate-spin")} />
-                  Actualiser QR
+                  Afficher le QR Code
                 </Button>
               </TabsContent>
 
               <TabsContent value="code" className="space-y-6 pt-4">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Numéro de téléphone</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Numéro WhatsApp (avec code pays)</label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="ex: 237600000000"
+                      placeholder="ex: 33612345678"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       className="h-10 text-sm"
                     />
                     <Button size="sm" className="h-10 px-4 whitespace-nowrap" onClick={handleRequestPairingCode} disabled={loading || !phoneNumber}>
-                      Obtenir le code
+                      Générer le code
                     </Button>
                   </div>
+                  <p className="text-[10px] text-muted-foreground px-1">Alternative si vous ne pouvez pas scanner de QR code. Entrez le numéro de votre compte WhatsApp.</p>
                 </div>
 
                 {pairingCode ? (
@@ -294,13 +299,13 @@ export function SessionCard({ session, onRefresh, onCreate }: { session?: any, o
               <Check className="h-6 w-6 text-green-600" />
             </div>
             <h4 className="text-sm font-medium">Session Opérationnelle</h4>
-            <p className="text-xs text-muted-foreground mt-1">L'instance est prête à envoyer et recevoir des messages.</p>
+            <p className="text-xs text-muted-foreground mt-1">Votre numéro WhatsApp est connecté avec succès et l'instance est prête à envoyer et recevoir des messages.</p>
 
             <div className="w-full mt-6 space-y-2">
               <div className="flex items-center justify-between p-2 rounded-md border bg-muted/30">
                 <div className="flex items-center gap-2">
                   <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium">Token de Session</span>
+                  <span className="text-xs font-medium" title="Ce jeton permet à vos applications externes de communiquer avec Whappi">Token d'Accès API</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-muted-foreground">

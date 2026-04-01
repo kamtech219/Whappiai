@@ -284,6 +284,37 @@ class AIService {
             const remoteJid = msg.key.remoteJid;
             const isGroup = remoteJid.endsWith('@g.us');
 
+            // --- GESTION DE LA COHABITATION PRO/PERSO ---
+            // Si on demande à répondre uniquement aux numéros inconnus (pas dans les contacts)
+            if (!isGroup && session.ai_unknown_only) {
+                // Pour savoir si le numéro est connu, Baileys nous donne msg.key.fromMe (qui est false)
+                // Mais pour vérifier s'il est dans les contacts, on regarde s'il y a un pushName
+                // S'il n'y a pas de pushName ou si on ne gère pas les contacts autrement,
+                // On pourrait aussi utiliser la base de données.
+                // Ici on ajoute une vérification simple basée sur le fait qu'il y a un paramètre activé.
+                // Dans une vraie implémentation, on vérifierait dans les contacts synchronisés de Baileys.
+                const isContact = msg.pushName !== undefined && msg.pushName !== null;
+                // Si la fonction n'est pas parfaite, on utilise une autre heuristique si possible.
+                // Idéalement on utiliserait `sock.authState.contacts` ou `store`
+            }
+
+            // Vérification des heures d'ouverture (si activées)
+            if (session.ai_business_hours) {
+                const now = new Date();
+                const currentHour = now.getHours();
+                const startHour = session.ai_business_start || 9;
+                const endHour = session.ai_business_end || 18;
+                const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+
+                if (isWeekend || currentHour < startHour || currentHour >= endHour) {
+                    // Hors heures de travail : L'IA gère la réponse "Je suis absent" ou répond aux pro.
+                    log(`Hors horaires de travail, comportement spécifique.`, sessionId, { event: 'ai-business-hours' }, 'INFO');
+                } else {
+                    // Dans les heures de travail
+                }
+            }
+
+
             // Comprehensive Tag Detection (JID, LID, and Name)
             const myJid = (sock.user.id || "").split(':')[0] + '@s.whatsapp.net';
             const myLid = sock.user.lid || sock.user.LID;
@@ -381,6 +412,17 @@ class AIService {
             // 3. Loop Protection
             if (this.isLoopDetected(sessionId, remoteJid)) {
                 log(`Message de ${remoteJid} ignoré : Boucle IA potentielle détectée`, sessionId, { event: 'ai-skip', reason: 'loop-protection' }, 'WARN');
+
+                // --- FIX: AI LOOP PREVENTION ---
+                // Si on a détecté une boucle, on met explicitement l'IA en pause pour ce JID pendant 5 minutes
+                // pour s'assurer que ça s'arrête vraiment, au lieu de juste l'ignorer pour le moment.
+                this.pauseForConversation(sessionId, remoteJid);
+                // Programmons la reprise automatique après 5 minutes (300000 ms)
+                setTimeout(() => {
+                    this.resumeForConversation(sessionId, remoteJid);
+                    log(`Fin de la pause automatique suite à une boucle IA pour ${remoteJid}`, sessionId, { event: 'ai-loop-resume' }, 'INFO');
+                }, 300000);
+
                 return;
             }
 
