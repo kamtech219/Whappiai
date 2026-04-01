@@ -34,10 +34,8 @@ class CalService {
 
         // 1. Priority: CAL_REDIRECT_URI from environment
         if (uri) {
-            // Automatically append path if missing
-            if (!uri.includes('/api/v1/cal/callback')) {
-                uri = `${uri.replace(/\/$/, '')}/api/v1/cal/callback`;
-            }
+            // Do not auto-append '/api/v1/cal/callback' if the user has explicitly configured the exact URI in Cal.com.
+            // Cal.com requires an EXACT MATCH between the URL requested here and the URL configured in their dashboard.
             log(`Redirect URI resolved from CAL_REDIRECT_URI: ${uri}`, 'SYSTEM', null, 'DEBUG');
             return uri;
         }
@@ -78,7 +76,10 @@ class CalService {
             throw new Error('Configuration Cal.com incorrecte : CAL_CLIENT_ID est manquant ou contient des caractères d\'exemple (xxxx). Veuillez vérifier vos variables d\'environnement.');
         }
 
-        return `https://app.cal.com/auth/oauth2/authorize?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(finalRedirectUri)}&state=${userId}&response_type=code`;
+        // Add requested scopes, ensuring they are URL-encoded. Based on user requirements: booking operations.
+        const scopes = "READ_BOOKING WRITE_BOOKING READ_PROFILE WRITE_PROFILE";
+
+        return `https://app.cal.com/auth/oauth2/authorize?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(finalRedirectUri)}&state=${userId}&response_type=code&scope=${encodeURIComponent(scopes)}`;
     }
 
     /**
