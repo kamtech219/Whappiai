@@ -1,3 +1,7 @@
 ## 2024-05-18 - [Parallelize Bulk Message Sending Endpoint]
 **Learning:** Refactoring a sequential `for...of` loop to use `Promise.all` for bulk message processing must be combined with chunking (concurrency limits). Direct mapping of user input (e.g., `req.body`) to parallel tasks creates unbounded concurrency, leading to resource exhaustion, `EMFILE` errors, or triggering rate-limit bans when hitting external APIs or processing many queues simultaneously.
 **Action:** When parallelizing operations on user-provided arrays in Node.js, always implement a `CONCURRENCY_LIMIT` and process the array in smaller chunks to protect server resources and maintain system stability.
+
+## 2024-05-20 - [Optimize Webhook Dispatch]
+**Learning:** In `src/services/WebhookService.js`, webhooks were previously dispatched using a sequential `for...of` loop where the `this.send` (which uses Axios) was called without an `await`. This effectively launched all outgoing HTTP requests instantaneously and simultaneously. While non-blocking to the Node event loop, launching unbounded concurrent Axios requests for many webhooks can lead to immediate socket exhaustion (`EMFILE`), `EADDRNOTAVAIL` errors, or memory spikes.
+**Action:** When dispatching background network requests over arrays, even if you do not want to block the caller, you must use chunking combined with `Promise.allSettled` (e.g., `CONCURRENCY_LIMIT = 10`) to enforce a safe maximum number of parallel outbound connections.

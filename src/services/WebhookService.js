@@ -18,15 +18,24 @@ class WebhookService {
                 SELECT * FROM webhooks WHERE session_id = ? AND is_active = 1
             `).all(sessionId);
 
-            for (const webhook of webhooks) {
-                // Check if event is subscribed
+            const applicableWebhooks = webhooks.filter(webhook => {
                 const subscribedEvents = JSON.parse(webhook.events || '[]');
-                if (subscribedEvents.length > 0 && !subscribedEvents.includes(event)) {
-                    continue;
-                }
+                return subscribedEvents.length === 0 || subscribedEvents.includes(event);
+            });
 
-                this.send(webhook, event, data, sessionId);
-            }
+            // Limit concurrency to 10 parallel webhook dispatches to prevent socket exhaustion
+            // Execute in the background via IIFE to maintain "fire-and-forget" latency profile
+            const CONCURRENCY_LIMIT = 10;
+            (async () => {
+                for (let i = 0; i < applicableWebhooks.length; i += CONCURRENCY_LIMIT) {
+                    const chunk = applicableWebhooks.slice(i, i + CONCURRENCY_LIMIT);
+                    await Promise.allSettled(
+                        chunk.map(webhook => this.send(webhook, event, data, sessionId))
+                    );
+                }
+            })().catch(err => {
+                log(`Erreur background dispatch webhook: ${err.message}`, sessionId, { event }, 'ERROR');
+            });
         } catch (err) {
             log(`Erreur dispatch webhook: ${err.message}`, sessionId, { event }, 'ERROR');
         }
