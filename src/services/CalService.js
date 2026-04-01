@@ -106,7 +106,8 @@ class CalService {
                 grant_type: 'authorization_code'
             });
 
-            const { access_token, refresh_token, expires_in } = response.data.data;
+            // Cal.com API v2 returns tokens at the root level of the response
+            const { access_token, refresh_token, expires_in } = response.data;
             const expiry = Math.floor(Date.now() / 1000) + expires_in;
 
             await User.update(userId, {
@@ -138,7 +139,8 @@ class CalService {
                 grant_type: 'refresh_token'
             });
 
-            const { access_token, refresh_token, expires_in } = response.data.data;
+            // Cal.com API v2 returns tokens at the root level of the response
+            const { access_token, refresh_token, expires_in } = response.data;
             const expiry = Math.floor(Date.now() / 1000) + expires_in;
 
             await User.update(userId, {
