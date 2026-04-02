@@ -49,14 +49,14 @@ class QueueService {
             log(`Message enfilé pour ${to} (Session: ${sessionId}, File: ${queue.length})`, sessionId, { event: 'queue-enqueue', to }, 'DEBUG');
 
             // Toujours tenter de lancer le processeur (il s'arrêtera s'il tourne déjà)
-            this.processQueue(sessionId, sock);
+            this.processQueue(sessionId);
         });
     }
 
     /**
      * Process tasks from the queue for a specific session
      */
-    static async processQueue(sessionId, sock) {
+    static async processQueue(sessionId) {
         // Prevent concurrent processing of the same session queue
         const queueKey = `processing:${sessionId}`;
         if (activeQueues.get(queueKey)) return;
@@ -67,13 +67,24 @@ class QueueService {
                 const queue = activeQueues.get(sessionId);
                 if (!queue || queue.length === 0) break;
 
+                // Dynamically get the socket to ensure it's up to date
+                const whatsapp = require('./whatsapp');
+                const sock = whatsapp.getSocket(sessionId);
+
                 // Check if socket is still active
                 if (!sock || !sock.user) {
-                    log(`Socket déconnecté, arrêt du traitement de la file pour ${sessionId}`, sessionId, { event: 'queue-stop-offline' }, 'WARN');
+                    log(`Socket déconnecté, arrêt temporaire du traitement de la file pour ${sessionId}`, sessionId, { event: 'queue-stop-offline' }, 'WARN');
                     break;
                 }
 
                 const task = queue.shift();
+
+                // Drop tasks older than 30 minutes to prevent sending stale messages
+                if (Date.now() - task.timestamp > 30 * 60 * 1000) {
+                    log(`Message expiré dans la file d'attente pour ${task.to} (>30 min)`, sessionId, { event: 'queue-expired', to: task.to }, 'WARN');
+                    if (task.reject) task.reject(new Error('Message expired in queue'));
+                    continue;
+                }
 
                 try {
                     // 1. Human-like delay BEFORE sending
