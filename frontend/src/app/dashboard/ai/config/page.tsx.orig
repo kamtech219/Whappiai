@@ -37,8 +37,6 @@ import { api } from "@/lib/api"
 import { useAuth, useUser } from "@clerk/clerk-react"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender } from "@/lib/utils"
-import { AIMemoryManager } from "@/components/dashboard/ai-memory-manager"
-import { Database } from "lucide-react"
 
 function AIConfigContent() {
   const router = useRouter()
