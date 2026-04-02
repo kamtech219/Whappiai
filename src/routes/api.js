@@ -582,8 +582,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             const contacts = db.prepare(`
                 SELECT remote_jid FROM conversation_memory WHERE session_id = ?
                 UNION
-                SELECT JSON_EXTRACT(metadata, '$.remoteJid') as remote_jid FROM activity_logs
-                WHERE user_email = ? AND metadata LIKE '%remoteJid%' AND JSON_EXTRACT(metadata, '$.remoteJid') IS NOT NULL
+                SELECT JSON_EXTRACT(details, '$.remoteJid') as remote_jid FROM activity_logs
+                WHERE user_email = ? AND details LIKE '%remoteJid%' AND JSON_EXTRACT(details, '$.remoteJid') IS NOT NULL
             `).all(sessionId, sessionId)
             .map(row => row.remote_jid)
             .filter(jid => jid && jid.endsWith('@s.whatsapp.net')); // Only return individual contacts, not groups or status
