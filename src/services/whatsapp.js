@@ -292,6 +292,10 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
             const name = sock.user?.name || 'Unknown';
             log(`WhatsApp connecté: ${name}`, sessionId, { event: 'connection-open', user: name }, 'INFO');
 
+            // Restart queue processing if there are pending messages
+            const QueueService = require('./QueueService');
+            QueueService.processQueue(sessionId);
+
             // Notify user of successful connection
             try {
                 const Session = require('../models/Session');

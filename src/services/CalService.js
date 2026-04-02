@@ -34,8 +34,10 @@ class CalService {
 
         // 1. Priority: CAL_REDIRECT_URI from environment
         if (uri) {
-            // Do not auto-append '/api/v1/cal/callback' if the user has explicitly configured the exact URI in Cal.com.
-            // Cal.com requires an EXACT MATCH between the URL requested here and the URL configured in their dashboard.
+            // Append path if the user configured a base URL in CAL_REDIRECT_URI
+            if (!uri.endsWith('/api/v1/cal/callback')) {
+               uri = `${uri.replace(/\/$/, '')}/api/v1/cal/callback`;
+            }
             log(`Redirect URI resolved from CAL_REDIRECT_URI: ${uri}`, 'SYSTEM', null, 'DEBUG');
             return uri;
         }
