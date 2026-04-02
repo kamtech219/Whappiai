@@ -24,6 +24,7 @@ import { useUser, useClerk, useAuth } from "@clerk/clerk-react"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender, safeDate, ensureNumber } from "@/lib/utils"
+import { Save, Loader2 } from "lucide-react"
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser()
@@ -31,18 +32,43 @@ export default function ProfilePage() {
   const { signOut } = useClerk()
   const [dbUser, setDbUser] = React.useState<any>(null)
   const [loading, setLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
 
   const fetchDbUser = React.useCallback(async () => {
      try {
         const token = await getToken()
         const data = await api.auth.check(token || undefined)
-        setDbUser(data?.user || data)
+        const rawUserObj = data?.user || data
+
+        if (rawUserObj) {
+           const userObj = { ...rawUserObj }
+           if (!userObj.timezone || userObj.timezone === 'UTC') {
+              userObj.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+           }
+           setDbUser(userObj)
+        }
      } catch (e) { console.error(e) } finally { setLoading(false) }
   }, [getToken])
 
   React.useEffect(() => {
      fetchDbUser()
   }, [fetchDbUser])
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const token = await getToken()
+      await api.users.updateProfile({
+        organization_name: dbUser.organization_name,
+        timezone: dbUser.timezone
+      }, token || undefined)
+      toast.success("Profil mis à jour")
+    } catch (e) {
+      toast.error("Erreur lors de la mise à jour")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   if (!isLoaded) return null
 
@@ -100,14 +126,28 @@ export default function ProfilePage() {
                      </div>
                      <div className="space-y-1.5">
                         <Label className="text-[10px] font-semibold text-muted-foreground">Organisation</Label>
-                        <Input value={dbUser?.organization_name || ""} readOnly className="h-9 bg-background/50 border-none text-xs" />
+                        <Input
+                           value={dbUser?.organization_name || ""}
+                           onChange={(e) => setDbUser(prev => prev ? { ...prev, organization_name: e.target.value } : prev)}
+                           className="h-9 text-xs"
+                        />
                      </div>
                      <div className="space-y-1.5">
                         <Label className="text-[10px] font-semibold text-muted-foreground">Fuseau Horaire</Label>
-                        <Input value={dbUser?.timezone || "UTC"} readOnly className="h-9 bg-background/50 border-none text-xs" />
+                        <Input
+                           value={dbUser?.timezone || ""}
+                           onChange={(e) => setDbUser(prev => prev ? { ...prev, timezone: e.target.value } : prev)}
+                           className="h-9 text-xs"
+                        />
                      </div>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-border/50">
+                  <div className="flex justify-end mt-4">
+                     <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        Enregistrer
+                     </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-border/50 mt-4">
                      <div className="space-y-0.5">
                         <p className="text-xs font-semibold">Notifications Sonores</p>
                         <p className="text-[10px] text-muted-foreground">Jouer un son lors d&apos;un nouvel événement.</p>
