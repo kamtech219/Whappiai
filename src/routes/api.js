@@ -578,13 +578,14 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         const { sessionId } = req.params;
         try {
             // Fetch unique remote_jids from conversation memory and activity logs (for a broader list of numbers)
-            // Combine both sources to ensure we have all people the AI might interact with
+            // Combine both sources to ensure we have all people the AI might interact with.
+            // In activity_logs, message recipients are stored as 'recipient' inside the 'details' JSON object.
             const contacts = db.prepare(`
                 SELECT remote_jid FROM conversation_memory WHERE session_id = ?
                 UNION
-                SELECT JSON_EXTRACT(details, '$.remoteJid') as remote_jid FROM activity_logs
-                WHERE user_email = ? AND details LIKE '%remoteJid%' AND JSON_EXTRACT(details, '$.remoteJid') IS NOT NULL
-            `).all(sessionId, sessionId)
+                SELECT JSON_EXTRACT(details, '$.recipient') as remote_jid FROM activity_logs
+                WHERE user_email = ? AND details LIKE '%recipient%' AND JSON_EXTRACT(details, '$.recipient') IS NOT NULL
+            `).all(sessionId, req.currentUser.email)
             .map(row => row.remote_jid)
             .filter(jid => jid && jid.endsWith('@s.whatsapp.net')); // Only return individual contacts, not groups or status
 
