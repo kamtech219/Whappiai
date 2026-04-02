@@ -577,14 +577,21 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.get('/sessions/:sessionId/contacts', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
         const { sessionId } = req.params;
         try {
-            // Fetch unique remote_jids from conversation memory
+            // Fetch unique remote_jids from conversation memory and activity logs (for a broader list of numbers)
+            // Combine both sources to ensure we have all people the AI might interact with
             const contacts = db.prepare(`
-                SELECT DISTINCT remote_jid
-                FROM conversation_memory
-                WHERE session_id = ?
-            `).all(sessionId).map(row => row.remote_jid);
+                SELECT remote_jid FROM conversation_memory WHERE session_id = ?
+                UNION
+                SELECT JSON_EXTRACT(metadata, '$.remoteJid') as remote_jid FROM activity_logs
+                WHERE user_email = ? AND metadata LIKE '%remoteJid%' AND JSON_EXTRACT(metadata, '$.remoteJid') IS NOT NULL
+            `).all(sessionId, sessionId)
+            .map(row => row.remote_jid)
+            .filter(jid => jid && jid.endsWith('@s.whatsapp.net')); // Only return individual contacts, not groups or status
 
-            res.json({ status: 'success', data: contacts });
+            // Remove duplicates
+            const uniqueContacts = [...new Set(contacts)];
+
+            res.json({ status: 'success', data: uniqueContacts });
         } catch (err) {
             log(`Échec de la récupération des contacts pour la session ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
             res.status(500).json({ status: 'error', message: err.message });
