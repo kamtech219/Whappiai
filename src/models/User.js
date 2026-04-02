@@ -23,17 +23,29 @@ class User {
         
         if (existingUser) {
             // Update existing user if needed (e.g. name, role, image or timezone change)
-            const stmt = db.prepare(`
-                UPDATE users 
-                SET email = ?, name = ?, role = ?, image_url = ?${timezone ? ', timezone = ?' : ''}
-                WHERE id = ?
-            `);
+            const newEmail = email.toLowerCase();
+            const updateTransaction = db.transaction(() => {
+                db.exec('PRAGMA defer_foreign_keys = ON;');
 
-            const updateParams = [email.toLowerCase(), name, targetRole || existingUser.role, imageUrl];
-            if (timezone) updateParams.push(timezone);
-            updateParams.push(existingUser.id);
+                const stmt = db.prepare(`
+                    UPDATE users
+                    SET email = ?, name = ?, role = ?, image_url = ?${timezone ? ', timezone = ?' : ''}
+                    WHERE id = ?
+                `);
 
-            stmt.run(...updateParams);
+                const updateParams = [newEmail, name, targetRole || existingUser.role, imageUrl];
+                if (timezone) updateParams.push(timezone);
+                updateParams.push(existingUser.id);
+
+                stmt.run(...updateParams);
+
+                if (existingUser.email !== newEmail) {
+                    db.prepare('UPDATE whatsapp_sessions SET owner_email = ? WHERE owner_email = ?')
+                      .run(newEmail, existingUser.email);
+                }
+            });
+
+            updateTransaction();
             return this.findById(existingUser.id);
         }
 
@@ -197,8 +209,10 @@ class User {
 
         for (const field of allowedFields) {
             if (Object.prototype.hasOwnProperty.call(updates, field)) {
+                // For email, we should normalize to lowercase when updating the database
+                const value = field === 'email' ? updates[field].toLowerCase() : updates[field];
                 fieldsToUpdate.push(field);
-                values.push(updates[field]);
+                values.push(value);
             }
         }
 
@@ -206,8 +220,18 @@ class User {
 
         const setClause = fieldsToUpdate.map(f => `"${f}" = ?`).join(', ');
 
-        const stmt = db.prepare(`UPDATE users SET ${setClause} WHERE id = ?`);
-        stmt.run(...values, id);
+        const updateTransaction = db.transaction(() => {
+            db.exec('PRAGMA defer_foreign_keys = ON;');
+            const stmt = db.prepare(`UPDATE users SET ${setClause} WHERE id = ?`);
+            stmt.run(...values, id);
+
+            if (updates.email && updates.email.toLowerCase() !== user.email) {
+                db.prepare('UPDATE whatsapp_sessions SET owner_email = ? WHERE owner_email = ?')
+                  .run(updates.email.toLowerCase(), user.email);
+            }
+        });
+
+        updateTransaction();
 
         return this.findById(id);
     }
