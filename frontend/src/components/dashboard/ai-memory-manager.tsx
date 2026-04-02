@@ -22,6 +22,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 export function AIMemoryManager({ sessionId }: { sessionId: string }) {
   const { getToken } = useAuth()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [isBlacklistOpen, setIsBlacklistOpen] = useState(false)
   const [contacts, setContacts] = useState<string[]>([])
@@ -84,6 +89,8 @@ export function AIMemoryManager({ sessionId }: { sessionId: string }) {
       prev.includes(jid) ? prev.filter(id => id !== jid) : [...prev, jid]
     )
   }
+
+  if (!isMounted) return null;
 
   return (
     <>
