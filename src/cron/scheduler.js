@@ -38,8 +38,24 @@ class Scheduler {
             await this.checkExpiringSubscriptions();
             await this.checkLowCredits();
             await this.processRenewals();
+            this.purgeAIMemory();
         } catch (error) {
             log(`Scheduler error: ${error.message}`, 'SYSTEM', null, 'ERROR');
+        }
+    }
+
+    /**
+     * Purge AI conversational memory older than 1 month
+     */
+    purgeAIMemory() {
+        try {
+            const aiService = require('../services/ai');
+            const deletedCount = aiService.purgeOldMemory(null, 1);
+            if (deletedCount > 0) {
+                log(`Scheduler: Purged ${deletedCount} old AI memory records.`, 'SYSTEM', null, 'INFO');
+            }
+        } catch (err) {
+            log(`Scheduler: Error purging AI memory: ${err.message}`, 'SYSTEM', null, 'ERROR');
         }
     }
 
