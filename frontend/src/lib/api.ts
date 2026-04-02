@@ -149,6 +149,23 @@ export const api = {
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
   },
+  memory: {
+    getContacts: (sessionId: string, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/contacts`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
+    getBlacklist: (sessionId: string, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/blacklist`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
+    updateBlacklist: (sessionId: string, numbers: string[], token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/blacklist`, {
+      method: "POST",
+      body: JSON.stringify({ numbers }),
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
+    clearMemory: (sessionId: string, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/memory`, {
+      method: "DELETE",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
+  },
   cal: {
     getStatus: (token?: string) => fetchApi("/api/v1/cal/status", {
       headers: token ? { "Authorization": `Bearer ${token}` } : {},

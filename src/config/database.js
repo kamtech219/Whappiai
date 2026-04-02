@@ -146,6 +146,18 @@ function initializeSchema() {
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_memory_session_jid ON conversation_memory(session_id, remote_jid)`);
 
+    // AI Blacklist
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_blacklisted_numbers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
+            remote_jid TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(session_id, remote_jid)
+        )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_ai_blacklist_session ON ai_blacklisted_numbers(session_id)`);
+
     // Group Moderation Settings
     db.exec(`
         CREATE TABLE IF NOT EXISTS group_settings (

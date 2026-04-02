@@ -154,6 +154,63 @@ class AIService {
         return botSentHistory.has(key);
     }
     /**
+     * Clear all conversation memory for a session
+     * @param {string} sessionId
+     */
+    static clearMemory(sessionId) {
+        try {
+            const result = db.prepare(`DELETE FROM conversation_memory WHERE session_id = ?`).run(sessionId);
+            log(`Mémoire effacée pour la session ${sessionId}. Messages supprimés: ${result.changes}`, sessionId, { event: 'ai-memory-cleared', changes: result.changes }, 'INFO');
+            return true;
+        } catch (err) {
+            log(`Erreur lors de l'effacement de la mémoire pour ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            throw err;
+        }
+    }
+
+    /**
+     * Purge old conversation memory globally or for a session
+     * @param {string} [sessionId] - Optional session ID. If not provided, purges globally.
+     * @param {number} months - Age in months
+     */
+    static purgeOldMemory(sessionId = null, months = 1) {
+        try {
+            const dateThreshold = new Date();
+            dateThreshold.setMonth(dateThreshold.getMonth() - months);
+            const dateStr = dateThreshold.toISOString();
+
+            let result;
+            if (sessionId) {
+                result = db.prepare(`DELETE FROM conversation_memory WHERE session_id = ? AND created_at < ?`).run(sessionId, dateStr);
+            } else {
+                result = db.prepare(`DELETE FROM conversation_memory WHERE created_at < ?`).run(dateStr);
+            }
+
+            log(`Purge automatique de la mémoire (>${months} mois). Messages supprimés: ${result.changes}`, sessionId || 'SYSTEM', { event: 'ai-memory-purged', changes: result.changes }, 'INFO');
+            return result.changes;
+        } catch (err) {
+            log(`Erreur lors de la purge de la mémoire: ${err.message}`, sessionId || 'SYSTEM', { error: err.message }, 'ERROR');
+            throw err;
+        }
+    }
+
+    /**
+     * Check if a number is blacklisted for AI
+     * @param {string} sessionId
+     * @param {string} remoteJid
+     * @returns {boolean}
+     */
+    static isBlacklisted(sessionId, remoteJid) {
+        try {
+            const result = db.prepare(`SELECT 1 FROM ai_blacklisted_numbers WHERE session_id = ? AND remote_jid = ?`).get(sessionId, remoteJid);
+            return !!result;
+        } catch (err) {
+            log(`Erreur vérification blacklist pour ${remoteJid}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            return false; // Fail open but gracefully
+        }
+    }
+
+    /**
      * Store message in conversational memory
      * @param {string} userId 
      * @param {string} remoteJid 
@@ -248,6 +305,14 @@ class AIService {
      */
     static async handleIncomingMessage(sock, sessionId, msg, isGroupMode = false, isRetry = false) {
         try {
+            const remoteJid = msg.key.remoteJid;
+
+            // Check if the remoteJid is blacklisted
+            if (remoteJid && this.isBlacklisted(sessionId, remoteJid)) {
+                log(`Message ignoré car le numéro ${remoteJid} est sur la liste noire de l'IA.`, sessionId, { event: 'ai-blacklisted-number-ignored', remoteJid }, 'DEBUG');
+                return;
+            }
+
             // Get session config from DB
             const session = Session.findById(sessionId);
             if (!session) {
@@ -281,7 +346,6 @@ class AIService {
                 return;
             }
 
-            const remoteJid = msg.key.remoteJid;
             const isGroup = remoteJid.endsWith('@g.us');
 
             // --- GESTION DE LA COHABITATION PRO/PERSO ---

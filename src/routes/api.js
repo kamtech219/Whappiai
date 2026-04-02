@@ -573,6 +573,82 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
+    // --- AI Memory & Blacklist ---
+    router.get('/sessions/:sessionId/contacts', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        try {
+            // Fetch unique remote_jids from conversation memory
+            const contacts = db.prepare(`
+                SELECT DISTINCT remote_jid
+                FROM conversation_memory
+                WHERE session_id = ?
+            `).all(sessionId).map(row => row.remote_jid);
+
+            res.json({ status: 'success', data: contacts });
+        } catch (err) {
+            log(`Échec de la récupération des contacts pour la session ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
+    router.get('/sessions/:sessionId/blacklist', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        try {
+            const blacklisted = db.prepare(`
+                SELECT remote_jid, created_at
+                FROM ai_blacklisted_numbers
+                WHERE session_id = ?
+            `).all(sessionId);
+
+            res.json({ status: 'success', data: blacklisted });
+        } catch (err) {
+            log(`Échec de la récupération de la liste noire pour la session ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
+    router.post('/sessions/:sessionId/blacklist', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        const { numbers } = req.body;
+
+        if (!Array.isArray(numbers)) {
+            return res.status(400).json({ status: 'error', message: 'numbers doit être un tableau' });
+        }
+
+        try {
+            // Begin transaction
+            const transaction = db.transaction((nums) => {
+                // First, clear existing blacklist for this session to ensure strict sync with the frontend array
+                db.prepare(`DELETE FROM ai_blacklisted_numbers WHERE session_id = ?`).run(sessionId);
+
+                // Then insert new values
+                const insertStmt = db.prepare(`INSERT INTO ai_blacklisted_numbers (session_id, remote_jid) VALUES (?, ?)`);
+                for (const num of nums) {
+                    insertStmt.run(sessionId, num);
+                }
+            });
+
+            transaction(numbers);
+            log(`Mise à jour de la liste noire pour la session ${sessionId} (${numbers.length} numéros)`, sessionId, { event: 'ai-blacklist-updated', count: numbers.length }, 'INFO');
+
+            res.json({ status: 'success', message: 'Liste noire mise à jour avec succès' });
+        } catch (err) {
+            log(`Échec de la mise à jour de la liste noire pour la session ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
+    router.delete('/sessions/:sessionId/memory', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        try {
+            const aiService = require('../services/ai');
+            aiService.clearMemory(sessionId);
+            res.json({ status: 'success', message: 'Mémoire effacée avec succès' });
+        } catch (err) {
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
     // --- Cal.com Integration ---
     router.get('/cal/status', checkSessionOrTokenAuth, async (req, res) => {
         try {
