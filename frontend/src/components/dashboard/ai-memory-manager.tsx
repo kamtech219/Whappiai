@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { useAuth } from "@clerk/nextjs"
+import { useAuth } from "@clerk/clerk-react"
 import { api } from "@/lib/api"
 import { Trash2, AlertTriangle, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
