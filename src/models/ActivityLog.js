@@ -118,45 +118,50 @@ class ActivityLog {
         }
 
         try {
-            // 1. Total activities in range
-            const totalStmt = db.prepare(`SELECT COUNT(*) as count ${sqlBase}`);
-            const totalResult = totalStmt.get(...params);
-            const totalActivities = totalResult ? totalResult.count : 0;
+            // ⚡ Bolt: Single optimized query for all summary stats using SUM/COUNT to let SQLite do the math
+            // This replaces 4 separate queries with one, avoiding memory bloat from fetching all rows.
+            const query = `
+                SELECT
+                    COUNT(*) as total_count,
+                    SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+                    action,
+                    user_email
+                ${sqlBase}
+                GROUP BY action, user_email
+            `;
+
+            const rows = db.prepare(query).all(...params);
+
+            let totalActivities = 0;
+            let successCount = 0;
+            const byAction = {};
+            const byUser = {};
+
+            for (const row of rows) {
+                totalActivities += row.total_count;
+                successCount += row.success_count || 0;
+
+                // Action grouping
+                if (row.action) {
+                    const key = row.action.toLowerCase();
+                    // Normalized keys for standard frontend cards
+                    if (key.includes('message_send') || key.includes('campaign_message')) {
+                        byAction['send_message'] = (byAction['send_message'] || 0) + row.total_count;
+                    }
+                    if (key.includes('session_create') || key === 'create') {
+                        byAction['create'] = (byAction['create'] || 0) + row.total_count;
+                    }
+                    byAction[key] = (byAction[key] || 0) + row.total_count;
+                }
+
+                // User grouping
+                const userKey = row.user_email || 'anonymous';
+                byUser[userKey] = (byUser[userKey] || 0) + row.total_count;
+            }
+
+            const successRate = totalActivities > 0 ? Math.round((successCount / totalActivities) * 100) : 100;
 
             log(`[ActivityLog] Total des activités dans la période: ${totalActivities}`, 'SYSTEM', { totalActivities }, 'DEBUG');
-
-            // 2. Group by action (with normalization for cards)
-            const actionStmt = db.prepare(`SELECT action, COUNT(*) as count ${sqlBase} GROUP BY action`);
-            const actionRows = actionStmt.all(...params);
-
-            const byAction = actionRows.reduce((acc, row) => {
-                let key = row.action.toLowerCase();
-                // Normalized keys for standard frontend cards
-                if (key.includes('message_send') || key.includes('campaign_message')) {
-                    acc['send_message'] = (acc['send_message'] || 0) + row.count;
-                }
-                if (key.includes('session_create') || key === 'create') {
-                    acc['create'] = (acc['create'] || 0) + row.count;
-                }
-
-                // Keep the raw key for details
-                acc[key] = (acc[key] || 0) + row.count;
-                return acc;
-            }, {});
-
-            // 3. Group by user
-            const userStmt = db.prepare(`SELECT user_email, COUNT(*) as count ${sqlBase} GROUP BY user_email`);
-            const userRows = userStmt.all(...params);
-            const byUser = userRows.reduce((acc, row) => {
-                acc[row.user_email || 'anonymous'] = row.count;
-                return acc;
-            }, {});
-
-            // 4. Success rate
-            const successStmt = db.prepare(`SELECT COUNT(*) as count ${sqlBase} AND success = 1`);
-            const successResult = successStmt.get(...params);
-            const successCount = successResult ? successResult.count : 0;
-            const successRate = totalActivities > 0 ? Math.round((successCount / totalActivities) * 100) : 100;
 
             return {
                 totalActivities,
