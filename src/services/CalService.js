@@ -183,7 +183,10 @@ class CalService {
 
         try {
             const response = await axios.get(`${this.apiUrl}/event-types`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'cal-api-version': '2024-08-13'
+                }
             });
             return response.data?.data || response.data || [];
         } catch (error) {
@@ -204,15 +207,36 @@ class CalService {
         if (!token) return [];
 
         try {
-            const response = await axios.get(`${this.apiUrl}/slots/available`, {
+            // Extract YYYY-MM-DD from ISO string
+            const start = startTime.split('T')[0];
+            const end = endTime.split('T')[0];
+
+            const response = await axios.get(`${this.apiUrl}/slots`, {
                 params: {
                     eventTypeId,
-                    startTime,
-                    endTime
+                    start,
+                    end
                 },
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'cal-api-version': '2024-09-04'
+                }
             });
-            return response.data.data.slots;
+
+            // V2 returns an object like { "2024-12-05": ["09:00", "09:30"] }
+            // We need to map it back to the array format expected by the AI service: [{ time: '2024-12-05T09:00:00Z' }]
+            const slots = [];
+            const data = response.data?.data || {};
+            for (const date in data) {
+                if (Array.isArray(data[date])) {
+                    for (const timeStr of data[date]) {
+                        slots.push({
+                            time: `${date}T${timeStr}:00Z`
+                        });
+                    }
+                }
+            }
+            return slots;
         } catch (error) {
             log(`CalService getAvailability error: ${error.message}`, 'SYSTEM', { error: error.response?.data || error.message }, 'ERROR');
             return [];
@@ -233,19 +257,31 @@ class CalService {
             const payload = {
                 eventTypeId,
                 start,
-                responses: {
+                attendee: {
                     name,
                     email,
-                    notes
+                    timeZone: user?.timezone || "UTC"
                 }
             };
 
+            if (notes) {
+                payload.metadata = { notes };
+            }
+
             if (location) {
-                payload.location = location;
+                // Determine format for location
+                if (typeof location === 'string') {
+                     payload.location = { value: location };
+                } else {
+                     payload.location = location;
+                }
             }
 
             const response = await axios.post(`${this.apiUrl}/bookings`, payload, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'cal-api-version': '2024-08-13'
+                }
             });
             return response.data.data;
         } catch (error) {
