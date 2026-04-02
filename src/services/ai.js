@@ -613,18 +613,24 @@ class AIService {
                 const checkMatch = finalResponse.match(/\[CAL_CHECK:([\d-]{10})\]/);
                 if (checkMatch) {
                     const date = checkMatch[1];
-                    const eventTypes = await CalService.getEventTypes(user.id);
-                    if (Array.isArray(eventTypes) && eventTypes.length > 0) {
-                        const eventTypeId = eventTypes[0].id; // Use first event type as default
-                        const startTime = `${date}T00:00:00Z`;
-                        const endTime = `${date}T23:59:59Z`;
-                        const slots = await CalService.getAvailability(user.id, eventTypeId, startTime, endTime);
+                    try {
+                        const eventTypes = await CalService.getEventTypes(user.id);
+                        if (Array.isArray(eventTypes) && eventTypes.length > 0) {
+                            const eventTypeId = eventTypes[0].id; // Use first event type as default
+                            const startTime = `${date}T00:00:00Z`;
+                            const endTime = `${date}T23:59:59Z`;
+                            const slots = await CalService.getAvailability(user.id, eventTypeId, startTime, endTime);
 
-                        let slotsText = (slots && slots.length > 0)
-                            ? `Voici les disponibilités pour le ${date} :\n` + slots.slice(0, 5).map(s => `- ${new Date(s.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`).join('\n')
-                            : `Désolé, aucune disponibilité pour le ${date}.`;
+                            let slotsText = (slots && slots.length > 0)
+                                ? `Voici les disponibilités pour le ${date} :\n` + slots.slice(0, 5).map(s => `- ${new Date(s.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`).join('\n')
+                                : `Désolé, aucune disponibilité pour le ${date}.`;
 
-                        finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}\]/, slotsText);
+                            finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}\]/, slotsText);
+                        } else {
+                            finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}\]/, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
+                        }
+                    } catch (err) {
+                        finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}\]/, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
                     }
                 }
 
@@ -632,27 +638,33 @@ class AIService {
                 const bookMatch = finalResponse.match(/\[CAL_BOOK:([^,]+),([^,]+),([^,]+),?([^\]]*)\]/);
                 if (bookMatch) {
                     const [_, dateTime, name, email, notes] = bookMatch;
-                    const eventTypes = await CalService.getEventTypes(user.id);
-                    if (Array.isArray(eventTypes) && eventTypes.length > 0) {
-                        try {
-                            const startTime = new Date(dateTime).toISOString();
-                            const booking = await CalService.createBooking(user.id, {
-                                eventTypeId: eventTypes[0].id,
-                                start: startTime,
-                                name: name.trim(),
-                                email: email.trim(),
-                                notes: (notes || "").trim()
-                            });
+                    try {
+                        const eventTypes = await CalService.getEventTypes(user.id);
+                        if (Array.isArray(eventTypes) && eventTypes.length > 0) {
+                            try {
+                                const startTime = new Date(dateTime).toISOString();
+                                const booking = await CalService.createBooking(user.id, {
+                                    eventTypeId: eventTypes[0].id,
+                                    start: startTime,
+                                    name: name.trim(),
+                                    email: email.trim(),
+                                    notes: (notes || "").trim()
+                                });
 
-                            let confirmationText = `✅ Rendez-vous confirmé pour le ${new Date(startTime).toLocaleString()} !`;
-                            if (booking && booking.videoCallUrl) {
-                                confirmationText += `\nLien vidéo : ${booking.videoCallUrl}`;
+                                let confirmationText = `✅ Rendez-vous confirmé pour le ${new Date(startTime).toLocaleString()} !`;
+                                if (booking && booking.videoCallUrl) {
+                                    confirmationText += `\nLien vidéo : ${booking.videoCallUrl}`;
+                                }
+
+                                finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, confirmationText);
+                            } catch (err) {
+                                finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, une erreur est survenue lors de la réservation. Le créneau est peut-être déjà pris.");
                             }
-
-                            finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, confirmationText);
-                        } catch (err) {
-                            finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, une erreur est survenue lors de la réservation. Le créneau est peut-être déjà pris.");
+                        } else {
+                            finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
                         }
+                    } catch (err) {
+                        finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
                     }
                 }
             }
