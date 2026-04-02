@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react"
 import { useAuth } from "@clerk/clerk-react"
 import { api } from "@/lib/api"
-import { Trash2, AlertTriangle, Users } from "lucide-react"
+import { Trash2, AlertTriangle, Users, RefreshCw } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -30,6 +31,7 @@ export function AIMemoryManager({ sessionId }: { sessionId: string }) {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [isBlacklistOpen, setIsBlacklistOpen] = useState(false)
   const [contacts, setContacts] = useState<string[]>([])
+  const [newContacts, setNewContacts] = useState<string[]>([])
   const [blacklisted, setBlacklisted] = useState<string[]>([])
   const [isLoadingContacts, setIsLoadingContacts] = useState(false)
   const [isSavingBlacklist, setIsSavingBlacklist] = useState(false)
@@ -48,7 +50,7 @@ export function AIMemoryManager({ sessionId }: { sessionId: string }) {
     }
   }
 
-  const fetchContactsAndBlacklist = async () => {
+  const fetchContactsAndBlacklist = async (isRefresh = false) => {
     setIsLoadingContacts(true)
     try {
       const token = await getToken()
@@ -57,11 +59,28 @@ export function AIMemoryManager({ sessionId }: { sessionId: string }) {
         api.memory.getBlacklist(sessionId, token || undefined)
       ])
 
-      if (contactsRes.data) {
-        setContacts(contactsRes.data)
-      }
       if (blacklistRes.data) {
-        setBlacklisted(blacklistRes.data.map((b: any) => b.remote_jid))
+        // Only override blacklist if it's the first load, to avoid unchecking items the user just checked before saving
+        if (!isRefresh && blacklisted.length === 0) {
+           setBlacklisted(blacklistRes.data.map((b: any) => b.remote_jid))
+        }
+      }
+
+      if (contactsRes.data) {
+        const fetchedContacts = contactsRes.data as string[];
+
+        if (isRefresh) {
+          // Identify new contacts that weren't in the state previously
+          const newOnes = fetchedContacts.filter(jid => !contacts.includes(jid));
+          if (newOnes.length > 0) {
+            setNewContacts(prev => [...new Set([...prev, ...newOnes])]);
+            toast.success(`${newOnes.length} nouveau(x) numéro(s) trouvé(s) !`);
+          } else {
+            toast.info("Aucun nouveau numéro trouvé.");
+          }
+        }
+
+        setContacts(fetchedContacts)
       }
     } catch (err: any) {
       toast.error("Erreur lors du chargement des contacts : " + err.message)
@@ -142,13 +161,27 @@ export function AIMemoryManager({ sessionId }: { sessionId: string }) {
       <Dialog open={isBlacklistOpen} onOpenChange={setIsBlacklistOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Numéros exclus (Liste noire)</DialogTitle>
-            <DialogDescription>
-              Cochez les numéros pour lesquels l'IA <strong>ne doit pas</strong> répondre automatiquement.
-            </DialogDescription>
+            <div className="flex justify-between items-start">
+               <div>
+                  <DialogTitle>Numéros exclus (Liste noire)</DialogTitle>
+                  <DialogDescription>
+                    Cochez les numéros pour lesquels l'IA <strong>ne doit pas</strong> répondre automatiquement.
+                  </DialogDescription>
+               </div>
+               <Button
+                 variant="ghost"
+                 size="sm"
+                 onClick={() => fetchContactsAndBlacklist(true)}
+                 disabled={isLoadingContacts}
+                 className="gap-2"
+               >
+                 <RefreshCw className={`h-4 w-4 ${isLoadingContacts ? 'animate-spin' : ''}`} />
+                 Synchroniser
+               </Button>
+            </div>
           </DialogHeader>
 
-          <ScrollArea className="h-[300px] w-full border rounded-md p-4">
+          <ScrollArea className="h-[300px] w-full border rounded-md p-4 bg-muted/20">
             {isLoadingContacts ? (
               <div className="flex justify-center items-center h-full text-sm text-muted-foreground">
                 Chargement des numéros...
@@ -159,18 +192,22 @@ export function AIMemoryManager({ sessionId }: { sessionId: string }) {
               </div>
             ) : (
               <div className="space-y-4">
-                {contacts.map(jid => (
-                  <div key={jid} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={jid}
-                      checked={blacklisted.includes(jid)}
-                      onCheckedChange={() => toggleBlacklist(jid)}
-                    />
-                    <Label htmlFor={jid} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      {jid.replace('@s.whatsapp.net', '')}
-                    </Label>
-                  </div>
-                ))}
+                {contacts.map(jid => {
+                  const isNew = newContacts.includes(jid);
+                  return (
+                    <div key={jid} className={`flex items-center space-x-2 p-2 rounded-md transition-colors ${isNew ? 'bg-primary/10 border border-primary/20' : 'hover:bg-muted'}`}>
+                      <Checkbox
+                        id={jid}
+                        checked={blacklisted.includes(jid)}
+                        onCheckedChange={() => toggleBlacklist(jid)}
+                      />
+                      <Label htmlFor={jid} className="text-sm font-medium leading-none flex-1 flex items-center gap-2 cursor-pointer">
+                        {jid.replace('@s.whatsapp.net', '')}
+                        {isNew && <Badge variant="default" className="text-[10px] px-1.5 py-0">Nouveau</Badge>}
+                      </Label>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
