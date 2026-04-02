@@ -118,6 +118,7 @@ function AIConfigContent() {
     { id: 'intelligence', name: 'Intelligence', icon: Brain },
     { id: 'cohabitation', name: 'Cohabitation Pro/Perso', icon: Sparkles },
     { id: 'automation', name: 'Automation', icon: Zap },
+    { id: 'memory', name: 'M&eacute;moire & Exclusions', icon: Database },
     { id: 'personality', name: 'Personnalit&eacute;', icon: User },
     { id: 'scheduling', name: 'Rendez-vous', icon: Calendar },
     { id: 'engine', name: 'Moteur API', icon: Cpu },
@@ -334,6 +335,19 @@ function AIConfigContent() {
                 </div>
               </CardContent>
             </Card>
+          </section>
+
+          <Separator />
+
+          <section id="memory" className="scroll-mt-24 space-y-6">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">M&eacute;moire &amp; Exclusions</h3>
+              <p className="text-xs text-muted-foreground">G&eacute;rez l'historique et la liste noire de l'IA.</p>
+            </div>
+
+            <div className="border rounded-lg p-6 bg-card">
+              <AIMemoryManager sessionId={sessionId || ''} />
+            </div>
           </section>
 
           <Separator />
