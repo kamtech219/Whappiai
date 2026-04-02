@@ -311,15 +311,15 @@ export const api = {
       method: "DELETE",
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
-    getProfile: (token?: string) => fetchApi("/admin/users/profile", {
+    getProfile: (token?: string) => fetchApi("/users/profile", {
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
-    updateProfile: (data: any, token?: string) => fetchApi("/admin/users/profile", {
+    updateProfile: (data: any, token?: string) => fetchApi("/users/profile", {
       method: "PUT",
       body: JSON.stringify(data),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
-    updateAIConfig: (data: any, token?: string) => fetchApi("/admin/users/profile/ai", {
+    updateAIConfig: (data: any, token?: string) => fetchApi("/users/profile/ai", {
       method: "POST",
       body: JSON.stringify(data),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
