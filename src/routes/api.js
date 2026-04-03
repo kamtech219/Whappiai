@@ -1423,6 +1423,17 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         res.json(debugInfo);
     });
 
+    router.get('/sessions/:sessionId/diagnostics', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        try {
+            const whatsappService = require('../services/whatsapp');
+            const diagnostics = whatsappService.getDiagnostics(req.params.sessionId);
+            res.status(200).json({ status: 'success', data: diagnostics });
+        } catch (error) {
+            log('Diagnostics API error', req.params.sessionId, { error: error.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: error.message });
+        }
+    });
+
     router.delete('/sessions/:sessionId', checkSessionOrTokenAuth, async (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, params: req.params });
         const { sessionId } = req.params;

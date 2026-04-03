@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  Activity,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -59,6 +60,7 @@ const getNavGroups = (t: any) => [
     items: [
       { name: t("nav.ai_assistant"), href: "/dashboard/ai", icon: Bot },
       { name: t("nav.group_management"), href: "/dashboard/moderation", icon: Shield },
+      { name: "Diagnostic", href: "/dashboard/diagnostic", icon: Activity },
     ]
   },
   {

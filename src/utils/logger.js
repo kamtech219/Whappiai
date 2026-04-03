@@ -38,15 +38,28 @@ function log(message, context = 'SYSTEM', details = null, level = null) {
     if (details) {
         if (details instanceof Error) {
             safeDetails = {
+                name: details.name,
                 message: details.message,
                 stack: details.stack,
-                code: details.code
+                code: details.code,
+                data: details.data || details.response?.data
             };
         } else {
             try {
+                // Manually map nested error if present (like lastDisconnect.error)
+                const safePayload = { ...details };
+                if (safePayload.errorDetail && safePayload.errorDetail instanceof Error) {
+                    safePayload.errorDetail = {
+                        name: safePayload.errorDetail.name,
+                        message: safePayload.errorDetail.message,
+                        stack: safePayload.errorDetail.stack,
+                        code: safePayload.errorDetail.code
+                    };
+                }
+
                 // Quick check for circularity
-                JSON.stringify(details);
-                safeDetails = details;
+                JSON.stringify(safePayload);
+                safeDetails = safePayload;
             } catch (e) {
                 safeDetails = { error: 'Circular structure detected', originalMessage: details.toString() };
             }

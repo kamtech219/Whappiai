@@ -30,13 +30,15 @@ const User = require('../models/User');
 const defaultLogLevel = process.env.NODE_ENV === 'production' ? 'silent' : 'warn';
 const logger = pino({ level: process.env.LOG_LEVEL || defaultLogLevel });
 
+const NotificationService = require('./NotificationService');
+
 // Active socket connections (in-memory)
 const activeSockets = new Map();
 const sessionLastActivity = new Map();
 const retryCounters = new Map();
 const reconnectTimeouts = new Map();
 const lastQrs = new Map();
-const connectingSessions = new Set();
+const connectingSessions = new Map(); // Changed to Map to track connect timestamps
 const deletingSessions = new Set();
 
 // Auth directory
@@ -87,7 +89,7 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
         log(`Connexion déjà en cours pour ${sessionId}, abandon de l'appel concurrent`, sessionId, { event: 'connect-locked' }, 'WARN');
         return activeSockets.get(sessionId);
     }
-    connectingSessions.add(sessionId);
+    connectingSessions.set(sessionId, Date.now());
 
     try {
         // Disconnect existing socket if any
@@ -352,7 +354,8 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
             log(`WhatsApp disconnected: ${reason} (Code: ${statusCode})`, sessionId, {
                 event: 'connection-close',
                 statusCode,
-                reason
+                reason,
+                errorDetail: lastDisconnect?.error
             }, statusCode === DisconnectReason.loggedOut ? 'WARN' : 'ERROR');
 
             // Clean up socket reference immediately
@@ -364,6 +367,7 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
             // Handle reconnection logic
             // We now attempt to reconnect even on 440 (Conflict) and 428 (Terminated) to fulfill "permanent connection" requirement
             const isConflict = statusCode === 440;
+            const isRateLimit = statusCode === 429;
 
             // Critical: If it's a conflict, we check if we've already tried too many times recently
             // to avoid infinite fighting between two processes
@@ -376,15 +380,19 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
                 retryCounters.set(sessionId, retryCount);
 
                 // Exponential backoff for WhatsApp reconnection (min 5s at startup to be safe)
-                // If it's a conflict, we wait significantly longer (min 1 min) to let the other session breath
-                // and we increase the delay exponentially to avoid spamming the server
-                let delay = Math.max(5000, Math.min(2000 * Math.pow(2, retryCount - 1), 120000));
+                // Max 5 minutes (300000 ms) to avoid extremely long waits
+                let delay = Math.max(5000, Math.min(2000 * Math.pow(2, retryCount - 1), 300000));
 
                 if (isConflict) {
                     // Start at 1 min for conflict, up to 10 mins, + random jitter (0-30s) to break sync loops
                     const jitter = Math.floor(Math.random() * 30000);
                     delay = Math.max(delay, (60000 * Math.min(retryCount, 10)) + jitter);
                     log(`Conflit de session détecté (440). Temporisation accrue: ${Math.round(delay/1000)}s (jitter: ${Math.round(jitter/1000)}s)`, sessionId, { event: 'connection-conflict', retryCount, delay }, 'WARN');
+                } else if (isRateLimit) {
+                    // Rate limit hit (429), back off immediately for 5 minutes + jitter
+                    const jitter = Math.floor(Math.random() * 60000); // Up to 1 minute jitter
+                    delay = 300000 + jitter;
+                    log(`Rate limit WhatsApp détecté (429). Temporisation accrue: ${Math.round(delay/1000)}s`, sessionId, { event: 'connection-rate-limit', retryCount, delay }, 'WARN');
                 }
 
                 // Increase max attempts to 100 for absolute permanence
@@ -421,6 +429,43 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
                     log(`Déconnexion effectuée, nettoyage des données de session`, sessionId, { event: 'session-cleanup' }, 'INFO');
                     if (fs.existsSync(sessionDir)) {
                         fs.rmSync(sessionDir, { recursive: true, force: true });
+                    }
+                }
+
+                // Detect Ban/Block
+                if (statusCode === 401 || statusCode === 403) {
+                    log(`Blocage ou bannissement de compte détecté (Code: ${statusCode})`, sessionId, { event: 'session-blocked', statusCode }, 'ERROR');
+
+                    try {
+                        const Session = require('../models/Session');
+                        const session = Session.findById(sessionId);
+
+                        if (session && session.owner_email) {
+                            const User = require('../models/User');
+                            const user = User.findByEmail(session.owner_email);
+
+                            if (user) {
+                                NotificationService.create({
+                                    userId: user.id,
+                                    type: 'SESSION_BLOCKED',
+                                    title: 'WhatsApp Déconnecté ou Bloqué',
+                                    message: \`Votre session \${sessionId} a été déconnectée (Code: \${statusCode}). Si c'est inattendu, votre numéro WhatsApp pourrait être bloqué par Meta. Veuillez vérifier votre application WhatsApp sur votre téléphone.\`,
+                                    metadata: { sessionId, statusCode }
+                                });
+                            }
+                        }
+                    } catch (notifyErr) {
+                        log(\`Erreur de notification de blocage: \${notifyErr.message}\`, sessionId, { error: notifyErr.message }, 'WARN');
+                    }
+
+                    try {
+                        WebhookService.dispatch(sessionId, 'session_blocked', {
+                            timestamp: Math.floor(Date.now() / 1000),
+                            reason: \`Disconnected with status \${statusCode}\`,
+                            statusCode
+                        });
+                    } catch (webhookErr) {
+                        log(\`Erreur webhook blocage: \${webhookErr.message}\`, sessionId, { error: webhookErr.message }, 'WARN');
                     }
                 }
             }
@@ -807,11 +852,56 @@ async function deleteSessionData(sessionId) {
 }
 
 /**
+ * Clean up zombie sessions that are stuck connecting for too long
+ */
+async function cleanupZombieSessions() {
+    const now = Date.now();
+    const timeout = 5 * 60 * 1000; // 5 minutes
+
+    for (const [sessionId, startTime] of connectingSessions.entries()) {
+        if (now - startTime > timeout) {
+            log(`Nettoyage session zombie (stuck connecting): ${sessionId}`, sessionId, { event: 'zombie-cleanup-connecting' }, 'WARN');
+            connectingSessions.delete(sessionId);
+            try {
+                await deleteSessionData(sessionId);
+            } catch (err) {
+                log(`Erreur nettoyage session zombie ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            }
+        }
+    }
+}
+
+// Start periodic cleanup of zombie sessions every hour
+setInterval(cleanupZombieSessions, 60 * 60 * 1000);
+
+/**
  * Get all active sessions
  * @returns {Map} Active sockets
  */
 function getActiveSessions() {
     return activeSockets;
+}
+
+/**
+ * Get detailed diagnostics for a session
+ * @param {string} sessionId
+ */
+function getDiagnostics(sessionId) {
+    const sock = activeSockets.get(sessionId);
+    const retryCount = retryCounters.get(sessionId) || 0;
+    const isConnecting = connectingSessions.has(sessionId);
+    const connectingTime = isConnecting ? Date.now() - connectingSessions.get(sessionId) : null;
+    const qr = lastQrs.get(sessionId);
+
+    return {
+        status: sock && sock.user ? 'CONNECTED' : (isConnecting ? 'CONNECTING' : 'DISCONNECTED'),
+        isActive: sock ? sock.isActive : false,
+        retryCount,
+        isConnecting,
+        connectingTimeMs: connectingTime,
+        hasQr: !!qr,
+        deleting: deletingSessions.has(sessionId)
+    };
 }
 
 module.exports = {
@@ -823,5 +913,6 @@ module.exports = {
     isConnected,
     deleteSessionData,
     getActiveSessions,
+    getDiagnostics,
     AUTH_DIR
 };
