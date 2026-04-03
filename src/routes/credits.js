@@ -21,6 +21,7 @@ router.get('/', ClerkExpressWithAuth(), async (req, res) => {
                 balance: user.message_limit,
                 used: user.message_used,
                 plan: user.plan_id,
+                expiry: user.subscription_expiry,
                 history: history
             }
         });

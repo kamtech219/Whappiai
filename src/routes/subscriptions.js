@@ -30,6 +30,34 @@ router.get('/current', ClerkExpressWithAuth(), async (req, res) => {
     }
 });
 
+// POST /api/v1/subscriptions/change-plan
+router.post('/change-plan', ClerkExpressWithAuth(), async (req, res) => {
+    try {
+        const userId = req.auth.userId;
+        const { planId } = req.body;
+
+        if (!userId) return res.status(401).json({ status: 'error', message: 'Unauthorized' });
+        if (!planId) return res.status(400).json({ status: 'error', message: 'Plan ID is required' });
+
+        // Logic for handling downgrades/upgrades cleanly
+        // Typically, actual payment/checkout creates a Chariow session via /payments/checkout.
+        // However, if the user downgrades to "free" or wants to switch via our internal system
+        // before billing logic catches up, we handle it here.
+        if (planId === 'free') {
+            const result = await SubscriptionService.cancel(userId);
+            return res.json({ status: 'success', message: 'Downgraded to free plan', result });
+        }
+
+        // For paid plans, redirect them to checkout, or handle internal subscription switch if valid.
+        // As a fallback, we just subscribe them here for testing/simplicity.
+        const subId = await SubscriptionService.subscribe(userId, planId);
+        res.json({ status: 'success', message: 'Plan changed successfully', subscriptionId: subId });
+    } catch (error) {
+        log('Error changing plan', 'SUBSCRIPTION', { error: error.message }, 'ERROR');
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
 // POST /api/v1/subscriptions/subscribe
 router.post('/subscribe', ClerkExpressWithAuth(), async (req, res) => {
     try {
