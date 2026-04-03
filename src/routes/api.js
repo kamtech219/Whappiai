@@ -734,6 +734,32 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
+    router.post('/sessions/:sessionId/ai/pause', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        const { remoteJid } = req.body;
+        if (!remoteJid) return res.status(400).json({ status: 'error', message: 'remoteJid is required' });
+        try {
+            const aiService = require('../services/ai');
+            aiService.pauseForConversation(sessionId, remoteJid, true);
+            res.json({ status: 'success', message: 'IA mise en pause pour cette conversation' });
+        } catch (err) {
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
+    router.post('/sessions/:sessionId/ai/resume', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        const { remoteJid } = req.body;
+        if (!remoteJid) return res.status(400).json({ status: 'error', message: 'remoteJid is required' });
+        try {
+            const aiService = require('../services/ai');
+            aiService.resumeForConversation(sessionId, remoteJid);
+            res.json({ status: 'success', message: 'IA réactivée pour cette conversation' });
+        } catch (err) {
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
     // --- Cal.com Integration ---
     router.get('/cal/status', checkSessionOrTokenAuth, async (req, res) => {
         try {

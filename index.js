@@ -371,7 +371,16 @@ function broadcastToClients(data) {
                 continue;
             }
 
-            // 4. Fallback: Broadcast other messages normally
+            // 4. Notifications isolation
+            if (data.type === 'notification') {
+                const targetUserId = data.data?.userId;
+                if (targetUserId && userInfo && userInfo.id === targetUserId) {
+                    client.send(JSON.stringify(data));
+                }
+                continue;
+            }
+
+            // 5. Fallback: Broadcast other messages normally
             client.send(JSON.stringify(data));
         }
     }
@@ -735,4 +744,4 @@ const gracefulShutdown = async (signal) => {
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-module.exports = { app, server, wss };
+module.exports = { app, server, wss, broadcastToClients };

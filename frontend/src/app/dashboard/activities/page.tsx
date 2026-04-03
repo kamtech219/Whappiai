@@ -203,14 +203,68 @@ export default function ActivitiesPage() {
                     </p>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Badge className={cn(
-                      "text-[9px] font-semibold border-none",
-                      activity.success === 1 || activity.success === true
-                        ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                        : "bg-red-500/10 text-red-700 dark:text-red-400"
-                    )}>
-                      {activity.success === 1 || activity.success === true ? 'Success' : 'Error'}
-                    </Badge>
+                    <div className="flex items-center justify-end gap-2">
+                      <Badge className={cn(
+                        "text-[9px] font-semibold border-none",
+                        activity.success === 1 || activity.success === true
+                          ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                          : "bg-red-500/10 text-red-700 dark:text-red-400"
+                      )}>
+                        {activity.success === 1 || activity.success === true ? 'Success' : 'Error'}
+                      </Badge>
+                      {activity.action === 'MESSAGE_SEND' && activity.details?.recipient && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="Mettre l'IA en pause"
+                            onClick={async () => {
+                              try {
+                                const token = await getToken();
+                                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/sessions/${activity.resource_id}/ai/pause`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                  },
+                                  body: JSON.stringify({ remoteJid: activity.details.recipient })
+                                });
+                                toast.success("IA mise en pause pour ce contact");
+                              } catch (err) {
+                                toast.error("Erreur lors de la mise en pause de l'IA");
+                              }
+                            }}
+                          >
+                            <span className="text-[10px]">⏸</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="Réactiver l'IA"
+                            onClick={async () => {
+                              try {
+                                const token = await getToken();
+                                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/sessions/${activity.resource_id}/ai/resume`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                  },
+                                  body: JSON.stringify({ remoteJid: activity.details.recipient })
+                                });
+                                toast.success("IA réactivée pour ce contact");
+                              } catch (err) {
+                                toast.error("Erreur lors de la réactivation de l'IA");
+                              }
+                            }}
+                          >
+                            <span className="text-[10px]">▶</span>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )) : null

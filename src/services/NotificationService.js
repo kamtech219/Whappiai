@@ -18,7 +18,16 @@ class NotificationService {
         log(`Notification created for ${userId}: ${type}`, 'SYSTEM');
         
         // Real-time push via WebSocket could be added here
-        // websocketService.sendToUser(userId, 'notification', { ... });
+        try {
+            const { broadcastToClients } = require('../../index');
+            if (broadcastToClients) {
+                // Send an update event telling clients to refresh their notifications
+                // The frontend NotificationDropdown component listens for { type: 'notification' }
+                broadcastToClients({ type: 'notification', data: { userId, type, title, message } });
+            }
+        } catch (err) {
+            log(`Error broadcasting notification: ${err.message}`, 'SYSTEM', null, 'ERROR');
+        }
         
         return id;
     }

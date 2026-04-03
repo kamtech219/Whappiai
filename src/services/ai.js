@@ -769,26 +769,7 @@ class AIService {
             }
 
             // Default to 'bot' mode as per specs
-
-            // 5. Content Filtering
-            if (!this.isContentSafe(finalResponse)) {
-                log(`Réponse IA bloquée par le filtre de contenu pour ${remoteJid}`, sessionId, { event: 'ai-content-filtered' }, 'WARN');
-                finalResponse = "Désolé, je ne peux pas générer cette réponse car elle ne respecte pas nos consignes de sécurité.";
-            }
-
-            // 6. Confidence Check (LOW_CONFIDENCE marker)
-            if (finalResponse.includes("[LOW_CONFIDENCE]")) {
-                log(`Faible confiance détectée dans la réponse pour ${remoteJid}`, sessionId, { event: 'ai-low-confidence' }, 'WARN');
-                finalResponse = "Désolé, je ne suis pas certain de la réponse. Veuillez contacter un humain.";
-            }
-
-            // 7. Off-Topic Check
-            if (finalResponse.includes("Je ne suis pas programmé pour répondre à cela.")) {
-                log(`Message hors-sujet détecté pour ${remoteJid}`, sessionId, { event: 'ai-off-topic' }, 'INFO');
-                // It will send the off-topic message naturally.
-            }
-
-            await this.sendAutoResponse(sock, remoteJid, finalResponse, sessionId);
+            await this.sendAutoResponse(sock, remoteJid, finalResponse, sessionId, messageText);
 
         } catch (error) {
             log(`Erreur AIService pour l'utilisateur ${sessionId}: ${error.message}`, sessionId, { event: 'ai-service-error', error: error.message }, 'ERROR');
@@ -1176,7 +1157,7 @@ Tu dois évaluer ta confiance dans ta réponse et vérifier si la question est d
     /**
      * Sends the response with human-like simulation
      */
-    static async sendAutoResponse(sock, jid, text, sessionId) {
+    static async sendAutoResponse(sock, jid, text, sessionId, originalMessage = null) {
         if (!text) return;
         let userId = null;
         let creditDeducted = false;
@@ -1216,17 +1197,37 @@ Tu dois évaluer ta confiance dans ta réponse et vérifier si la question est d
                 Session.updateAIStats(sessionId, 'sent');
                 this.recordAIResponse(sessionId, jid, text);
 
-                // Log to activity log if available
                 const session = Session.findById(sessionId);
+
+                // Real-time Notification to Dashboard
+                if (session && userId) {
+                    const NotificationService = require('./NotificationService');
+                    NotificationService.create({
+                        userId,
+                        type: 'message_received',
+                        title: 'Nouvelle réponse IA',
+                        message: `L'IA a répondu à ${jid}`,
+                        metadata: { jid, sessionId, text, originalMessage }
+                    });
+                }
+
+                // Log to activity log if available
                 if (ActivityLog && session) {
-                    await ActivityLog.logMessageSend(
-                        session.owner_email || 'ai-assistant',
-                        sessionId,
-                        jid,
-                        'text',
-                        '127.0.0.1', // Local AI action
-                        'AI Assistant'
-                    );
+                    await ActivityLog.log({
+                        userEmail: session.owner_email || 'ai-assistant',
+                        action: 'MESSAGE_SEND',
+                        resource: 'message',
+                        resourceId: sessionId,
+                        details: {
+                            recipient: jid,
+                            messageType: 'text',
+                            aiResponse: text,
+                            originalMessage: originalMessage
+                        },
+                        ip: '127.0.0.1',
+                        userAgent: 'AI Assistant',
+                        success: true
+                    });
                 }
             } else {
                 log(`sock.sendMessage a retourné null pour ${jid}`, sessionId, { event: 'ai-send-failed', jid }, 'WARN');
