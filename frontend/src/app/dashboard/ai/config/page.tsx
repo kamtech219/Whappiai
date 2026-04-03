@@ -38,6 +38,8 @@ import { useAuth, useUser } from "@clerk/clerk-react"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender } from "@/lib/utils"
 import { AIMemoryManager } from "@/components/dashboard/ai-memory-manager"
+import { KeywordBuilder } from "@/components/dashboard/keyword-builder"
+import { ChatSimulator } from "@/components/dashboard/chat-simulator"
 import { Database } from "lucide-react"
 
 function AIConfigContent() {
@@ -128,6 +130,43 @@ function AIConfigContent() {
     { id: 'bot', name: 'Automatique', desc: 'IA g&egrave;re tout', icon: Bot },
     { id: 'keyword', name: 'Mots-cl&eacute;s', desc: 'Z&eacute;ro IA, uniquement mots-cl&eacute;s', icon: Terminal },
   ]
+
+  const templates = [
+    {
+      id: 'support',
+      name: 'Assistant Support Client',
+      desc: 'Répond poliment aux questions et aide à résoudre les problèmes.',
+      prompt: 'Tu es un assistant de support client amical et professionnel. Ton but est d\'aider les utilisateurs à résoudre leurs problèmes, de répondre clairement et de rester poli en toute circonstance. Ne donne que des informations factuelles.',
+      ai_temperature: 0.3
+    },
+    {
+      id: 'faq',
+      name: 'Répondeur FAQ',
+      desc: 'Fournit des réponses directes et précises basées sur la base de connaissances.',
+      prompt: 'Tu es un bot d\'information stricte (FAQ). Tu ne dois répondre qu\'aux questions pour lesquelles tu as l\'information. Sois très concis, va droit au but, et si tu ne sais pas, dis-le clairement sans inventer.',
+      ai_temperature: 0.1
+    },
+    {
+      id: 'sales',
+      name: 'Assistant Commercial / Vente',
+      desc: 'Engage la conversation, met en valeur les produits et pousse à l\'action.',
+      prompt: 'Tu es un assistant commercial dynamique et persuasif. Ton objectif est de mettre en valeur nos produits/services, de créer de l\'engagement et d\'inciter le prospect à prendre rendez-vous ou à acheter. Sois enthousiaste mais professionnel.',
+      ai_temperature: 0.7
+    }
+  ]
+
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setConfig({
+        ...config,
+        prompt: template.prompt,
+        ai_temperature: template.ai_temperature,
+        mode: 'bot'
+      });
+      toast.success(`Modèle "${template.name}" appliqué !`);
+    }
+  }
 
   return (
     <div className="space-y-6 pb-20">
@@ -322,7 +361,7 @@ function AIConfigContent() {
               <CardContent className="p-4 pt-0 space-y-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs">D&eacute;lai de r&eacute;ponse (secondes)</Label>
+                    <Label className="text-xs" title="Temps d'attente avant que le bot réponde, pour simuler un comportement humain naturel.">D&eacute;lai de r&eacute;ponse (secondes)</Label>
                     <span className="text-xs font-mono text-primary font-bold">{config?.delay_min || 1}s - {config?.delay_max || 5}s</span>
                   </div>
                   <Slider
@@ -335,6 +374,12 @@ function AIConfigContent() {
                 </div>
               </CardContent>
             </Card>
+          </section>
+
+          <Separator />
+
+          <section id="keywords" className="scroll-mt-24 space-y-6">
+            <KeywordBuilder sessionId={sessionId || ''} />
           </section>
 
           <Separator />
@@ -358,14 +403,59 @@ function AIConfigContent() {
               <p className="text-xs text-muted-foreground">D&eacute;finissez comment le bot doit s&apos;exprimer.</p>
             </div>
 
+            <div className="space-y-4 mb-6">
+              <Label className="text-xs font-bold text-muted-foreground uppercase">Modèles de configuration rapides</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {templates.map(t => (
+                  <Card key={t.id} className="cursor-pointer hover:border-primary/50 transition-colors bg-muted/5 shadow-none" onClick={() => applyTemplate(t.id)}>
+                    <CardHeader className="p-3 pb-1">
+                      <CardTitle className="text-xs flex items-center gap-2">
+                        {t.id === 'support' && <MessageSquare className="h-3.5 w-3.5 text-blue-500" />}
+                        {t.id === 'faq' && <Bot className="h-3.5 w-3.5 text-amber-500" />}
+                        {t.id === 'sales' && <Zap className="h-3.5 w-3.5 text-green-500" />}
+                        {t.name}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-1">
+                      <p className="text-[10px] text-muted-foreground leading-tight">{t.desc}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
-               <Label className="text-xs">Prompt Syst&egrave;me (Instructions)</Label>
+               <Label className="text-xs" title="Les instructions secrètes que l'IA va suivre à la lettre pour chaque message.">Prompt Syst&egrave;me (Instructions)</Label>
                <Textarea
                  placeholder="Instructions pour l'IA..."
                  className="min-h-[200px] text-sm leading-relaxed border-border bg-card"
                  value={config?.prompt || ""}
                  onChange={e => setConfig({...config, prompt: e.target.value})}
                />
+            </div>
+
+            <div className="space-y-4 pt-4">
+              <div className="flex flex-col space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs" title="Contrôle le degré de créativité et d'imprévisibilité de l'IA.">Créativité de l'IA</Label>
+                  <span className="text-xs font-mono text-primary font-bold">{config?.ai_temperature ?? 0.7}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground pb-2">
+                  <span>Moins créatif (Précis)</span>
+                  <span>Plus créatif (Imaginatif)</span>
+                </div>
+                <Slider
+                  value={[config?.ai_temperature ?? 0.7]}
+                  max={1.5}
+                  step={0.1}
+                  className="py-2"
+                  onValueChange={([val]) => setConfig({...config, ai_temperature: val})}
+                />
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <ChatSimulator sessionId={sessionId || ''} config={config} />
             </div>
           </section>
 
