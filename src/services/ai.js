@@ -755,7 +755,7 @@ class AIService {
             }
 
             // Default to 'bot' mode as per specs
-            await this.sendAutoResponse(sock, remoteJid, finalResponse, sessionId);
+            await this.sendAutoResponse(sock, remoteJid, finalResponse, sessionId, messageText);
 
         } catch (error) {
             log(`Erreur AIService pour l'utilisateur ${sessionId}: ${error.message}`, sessionId, { event: 'ai-service-error', error: error.message }, 'ERROR');
@@ -1111,7 +1111,7 @@ RÈGLES STRICTES POUR CAL.COM :
     /**
      * Sends the response with human-like simulation
      */
-    static async sendAutoResponse(sock, jid, text, sessionId) {
+    static async sendAutoResponse(sock, jid, text, sessionId, originalMessage = null) {
         if (!text) return;
         let userId = null;
         let creditDeducted = false;
@@ -1151,17 +1151,37 @@ RÈGLES STRICTES POUR CAL.COM :
                 Session.updateAIStats(sessionId, 'sent');
                 this.recordAIResponse(sessionId, jid);
 
-                // Log to activity log if available
                 const session = Session.findById(sessionId);
+
+                // Real-time Notification to Dashboard
+                if (session && userId) {
+                    const NotificationService = require('./NotificationService');
+                    NotificationService.create({
+                        userId,
+                        type: 'message_received',
+                        title: 'Nouvelle réponse IA',
+                        message: `L'IA a répondu à ${jid}`,
+                        metadata: { jid, sessionId, text, originalMessage }
+                    });
+                }
+
+                // Log to activity log if available
                 if (ActivityLog && session) {
-                    await ActivityLog.logMessageSend(
-                        session.owner_email || 'ai-assistant',
-                        sessionId,
-                        jid,
-                        'text',
-                        '127.0.0.1', // Local AI action
-                        'AI Assistant'
-                    );
+                    await ActivityLog.log({
+                        userEmail: session.owner_email || 'ai-assistant',
+                        action: 'MESSAGE_SEND',
+                        resource: 'message',
+                        resourceId: sessionId,
+                        details: {
+                            recipient: jid,
+                            messageType: 'text',
+                            aiResponse: text,
+                            originalMessage: originalMessage
+                        },
+                        ip: '127.0.0.1',
+                        userAgent: 'AI Assistant',
+                        success: true
+                    });
                 }
             } else {
                 log(`sock.sendMessage a retourné null pour ${jid}`, sessionId, { event: 'ai-send-failed', jid }, 'WARN');
