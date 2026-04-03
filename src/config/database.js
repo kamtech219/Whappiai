@@ -158,6 +158,18 @@ function initializeSchema() {
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_ai_blacklist_session ON ai_blacklisted_numbers(session_id)`);
 
+    // AI Whitelist
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_whitelisted_numbers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
+            remote_jid TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(session_id, remote_jid)
+        )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_ai_whitelist_session ON ai_whitelisted_numbers(session_id)`);
+
     // Group Moderation Settings
     db.exec(`
         CREATE TABLE IF NOT EXISTS group_settings (
@@ -584,6 +596,28 @@ function initializeSchema() {
                 }
             }
         });
+    });
+
+    // Add AI whitelist table
+    runner.run('ai-whitelist-table-v1', (db) => {
+        const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_whitelisted_numbers'").get();
+        if (!tableCheck) {
+            try {
+                db.exec(`
+                    CREATE TABLE ai_whitelisted_numbers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id TEXT NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
+                        remote_jid TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(session_id, remote_jid)
+                    )
+                `);
+                db.exec(`CREATE INDEX idx_ai_whitelist_session ON ai_whitelisted_numbers(session_id)`);
+                log("Migration : Table ai_whitelisted_numbers créée avec succès", "SYSTEM");
+            } catch (e) {
+                log("Migration : Échec création ai_whitelisted_numbers", "SYSTEM", { error: e.message }, "ERROR");
+            }
+        }
     });
 
     log('Schéma de la base de données initialisé avec succès', 'SYSTEM', { event: 'db-schema-init' }, 'INFO');

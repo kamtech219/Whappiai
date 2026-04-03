@@ -161,6 +161,14 @@ export const api = {
       body: JSON.stringify({ numbers }),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
+    getWhitelist: (sessionId: string, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/whitelist`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
+    updateWhitelist: (sessionId: string, numbers: string[], token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/whitelist`, {
+      method: "POST",
+      body: JSON.stringify({ numbers }),
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
     clearMemory: (sessionId: string, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/memory`, {
       method: "DELETE",
       headers: token ? { "Authorization": `Bearer ${token}` } : {},

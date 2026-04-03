@@ -676,6 +676,53 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
+    router.get('/sessions/:sessionId/whitelist', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        try {
+            const whitelisted = db.prepare(`
+                SELECT remote_jid, created_at
+                FROM ai_whitelisted_numbers
+                WHERE session_id = ?
+            `).all(sessionId);
+
+            res.json({ status: 'success', data: whitelisted });
+        } catch (err) {
+            log(`Échec de la récupération de la liste blanche pour la session ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
+    router.post('/sessions/:sessionId/whitelist', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
+        const { sessionId } = req.params;
+        const { numbers } = req.body;
+
+        if (!Array.isArray(numbers)) {
+            return res.status(400).json({ status: 'error', message: 'numbers doit être un tableau' });
+        }
+
+        try {
+            // Begin transaction
+            const transaction = db.transaction((nums) => {
+                // First, clear existing whitelist for this session
+                db.prepare(`DELETE FROM ai_whitelisted_numbers WHERE session_id = ?`).run(sessionId);
+
+                // Then insert new values
+                const insertStmt = db.prepare(`INSERT INTO ai_whitelisted_numbers (session_id, remote_jid) VALUES (?, ?)`);
+                for (const num of nums) {
+                    insertStmt.run(sessionId, num);
+                }
+            });
+
+            transaction(numbers);
+            log(`Mise à jour de la liste blanche pour la session ${sessionId} (${numbers.length} numéros)`, sessionId, { event: 'ai-whitelist-updated', count: numbers.length }, 'INFO');
+
+            res.json({ status: 'success', message: 'Liste blanche mise à jour avec succès' });
+        } catch (err) {
+            log(`Échec de la mise à jour de la liste blanche pour la session ${sessionId}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: err.message });
+        }
+    });
+
     router.delete('/sessions/:sessionId/memory', checkSessionOrTokenAuth, ensureOwnership, (req, res) => {
         const { sessionId } = req.params;
         try {

@@ -211,6 +211,22 @@ class AIService {
     }
 
     /**
+     * Check if a number is whitelisted for AI
+     * @param {string} sessionId
+     * @param {string} remoteJid
+     * @returns {boolean}
+     */
+    static isWhitelisted(sessionId, remoteJid) {
+        try {
+            const result = db.prepare(`SELECT 1 FROM ai_whitelisted_numbers WHERE session_id = ? AND remote_jid = ?`).get(sessionId, remoteJid);
+            return !!result;
+        } catch (err) {
+            log(`Erreur vérification whitelist pour ${remoteJid}: ${err.message}`, sessionId, { error: err.message }, 'ERROR');
+            return false;
+        }
+    }
+
+    /**
      * Store message in conversational memory
      * @param {string} userId 
      * @param {string} remoteJid 
@@ -320,10 +336,30 @@ class AIService {
                 return;
             }
 
-            // Check if AI is enabled (For personal bot mode)
-            if (!isGroupMode && parseInt(session.ai_enabled) !== 1) {
-                log(`IA désactivée pour cette session`, sessionId, { event: 'ai-disabled' }, 'INFO');
-                return;
+            // Check if AI is explicitly whitelisted
+            const isWhitelisted = remoteJid && this.isWhitelisted(sessionId, remoteJid);
+
+            // Determine if AI should run globally
+            const isGlobalAIEnabled = parseInt(session.ai_enabled) === 1;
+
+            // Priority:
+            // 1. Blacklist (Already checked above, aborts)
+            // 2. Whitelist (Forces AI execution for this contact/group, regardless of global/group mode)
+            // 3. Global settings / Group Mode
+            if (!isWhitelisted) {
+                // If not whitelisted, rely on standard logic
+                if (!isGroupMode && !isGlobalAIEnabled) {
+                    log(`IA désactivée pour cette session`, sessionId, { event: 'ai-disabled' }, 'INFO');
+                    return;
+                }
+                // (Group mode logic is further down, where we check if it's a group and if group assistant is active)
+            } else {
+                // If whitelisted, we force it to act like a personal bot even if disabled,
+                // or like an assistant in a group.
+                if (remoteJid.endsWith('@g.us') && !isGroupMode) {
+                    log(`Whitelist match: Activation du bot pour le groupe whitelisted`, sessionId, { event: 'ai-whitelist-group' }, 'INFO');
+                    // We'll let it pass the !isGroupMode check later by ensuring it just responds
+                }
             }
 
             // Extract the actual message content
@@ -543,7 +579,7 @@ class AIService {
             
             // Handle group vs private messages
             if (isGroup) {
-                if (!isGroupMode) {
+                if (!isGroupMode && !isWhitelisted) {
                     log(`Message de groupe ignoré par l'auto-répondeur IA personnel`, sessionId, { remoteJid }, 'DEBUG');
                     return;
                 }
