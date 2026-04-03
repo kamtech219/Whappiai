@@ -11,7 +11,62 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const validator = require('validator');
 const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
+const xss = require('xss');
+const NodeClam = require('clamscan');
 const User = require('../models/User');
+
+// Initialize ClamAV Scanner
+let clamscan = null;
+try {
+    new NodeClam().init({
+        removeInfected: true, // If true, removes infected files
+        quarantineInfected: false, // False: don't quarantine
+        scanLog: null, // Path to a writeable log file to write scan results into
+        debugMode: false, // Whether or not to log info/debug/error msgs to the console
+        fileList: null, // path to file containing list of files to scan (for scanFiles method)
+        scanRecursively: true, // If true, deep scan folders recursively
+        clamscan: {
+            path: '/usr/bin/clamscan', // Path to clamscan binary on your server
+            db: null, // Path to a custom virus definition database
+            scanArchives: true, // If true, scan archives (ex. zip, rar, tar, dmg, iso, etc...)
+            active: true // If true, this module will consider using the clamscan binary
+        },
+        clamdscan: {
+            socket: false, // Socket file for connecting via TCP
+            host: false, // IP of host to connect to TCP interface
+            port: false, // Port of host to use when connecting via TCP interface
+            timeout: 60000, // Timeout for scanning files
+            localFallback: false, // Do no fail over to binary-method of scanning
+            path: '/usr/bin/clamdscan', // Path to the clamdscan binary on your server
+            configFile: null, // Specify config file if it's in an unusual place
+            multiscan: true, // Scan using all available cores! Yay!
+            reloadDb: false, // If true, will re-load the DB on every call (slow)
+            active: true, // If true, this module will consider using the clamdscan binary
+            bypassTest: false, // Check to see if socket is available when applicable
+        },
+        preference: 'clamdscan' // If clamdscan is found and active, it will be used by default
+    }).then(instance => {
+        clamscan = instance;
+        log('ClamAV Scanner initialized', 'SYSTEM', null, 'INFO');
+    }).catch(err => {
+        log(`Failed to initialize ClamAV Scanner: ${err.message}. Antivirus disabled.`, 'SYSTEM', null, 'WARN');
+    });
+} catch (error) {
+    log(`ClamAV setup error: ${error.message}`, 'SYSTEM', null, 'WARN');
+}
+
+const sanitizePayload = (obj) => {
+    if (typeof obj === 'string') return xss(obj);
+    if (Array.isArray(obj)) return obj.map(item => sanitizePayload(item));
+    if (obj !== null && typeof obj === 'object') {
+        const sanitized = {};
+        for (const [key, value] of Object.entries(obj)) {
+            sanitized[key] = sanitizePayload(value);
+        }
+        return sanitized;
+    }
+    return obj;
+};
 const Session = require('../models/Session');
 const AIModel = require('../models/AIModel');
 const KeywordResponder = require('../models/KeywordResponder');
@@ -572,7 +627,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             }
 
             // Security: Only admins can set custom endpoints and keys
-            const aiConfig = { ...req.body };
+            const aiConfig = sanitizePayload(req.body);
+
             if (req.currentUser.role !== 'admin') {
                 delete aiConfig.endpoint;
                 delete aiConfig.key;
@@ -1044,6 +1100,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     // AI Group Message Generation
     router.post('/sessions/:sessionId/groups/:groupId/ai-generate', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
         const { sessionId, groupId } = req.params;
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({ status: 'error', message: 'Request body is required' });
+        }
         try {
             // Credit Check & Deduction
             if (req.currentUser.role !== 'admin') {
@@ -1082,6 +1141,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.post('/sessions/:sessionId/moderation/groups/:groupId/engagement', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
         const { sessionId, groupId } = req.params;
+        if (!req.body || typeof req.body.message_content !== 'string') {
+            return res.status(400).json({ status: 'error', message: 'message_content is required and must be a string' });
+        }
         try {
             const engagementService = require('../services/engagement');
             const taskId = engagementService.addTask({
@@ -1095,8 +1157,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
-    router.delete('/moderation/engagement/:taskId', checkSessionOrTokenAuth, async (req, res) => {
-        const { taskId } = req.params;
+    router.delete('/sessions/:sessionId/moderation/engagement/:taskId', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
+        const { taskId, sessionId } = req.params;
         try {
             const engagementService = require('../services/engagement');
             engagementService.deleteTask(taskId);
@@ -1107,8 +1169,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     // REST API for updating pending engagement tasks (Pessimistic locking via status check)
-    router.put('/moderation/engagement/:taskId', checkSessionOrTokenAuth, async (req, res) => {
-        const { taskId } = req.params;
+    router.put('/sessions/:sessionId/moderation/engagement/:taskId', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
+        const { taskId, sessionId } = req.params;
         try {
             const engagementService = require('../services/engagement');
             const updated = engagementService.updateTask(taskId, req.body);
@@ -1154,8 +1216,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.post('/sessions/:sessionId/keywords', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
         try {
+            const safeBody = sanitizePayload(req.body);
             const rule = KeywordResponder.create({
-                ...req.body,
+                ...safeBody,
                 session_id: req.params.sessionId
             });
             res.status(201).json({ status: 'success', data: rule });
@@ -1166,7 +1229,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.put('/sessions/:sessionId/keywords/:id', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
         try {
-            const rule = KeywordResponder.update(req.params.id, req.body);
+            const safeBody = sanitizePayload(req.body);
+            const rule = KeywordResponder.update(req.params.id, safeBody);
             res.json({ status: 'success', data: rule });
         } catch (error) {
             res.status(500).json({ status: 'error', message: error.message });
@@ -1198,7 +1262,11 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
 
         try {
-            const id = await KnowledgeService.addDocument(req.params.sessionId, name, type || 'text', content, source);
+            const safeName = xss(name);
+            const safeContent = xss(content);
+            const safeType = type ? xss(type) : 'text';
+            const safeSource = source ? xss(source) : undefined;
+            const id = await KnowledgeService.addDocument(req.params.sessionId, safeName, safeType, safeContent, safeSource);
             res.json({ status: 'success', data: { id } });
         } catch (error) {
             res.status(500).json({ status: 'error', message: error.message });
@@ -1564,20 +1632,49 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     // Hardened media upload endpoint (validation handled by multer fileFilter)
-    router.post('/media', checkSessionOrTokenAuth, upload.single('file'), (req, res) => {
+    router.post('/media', checkSessionOrTokenAuth, upload.single('file'), async (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
         if (!req.file) {
             log('API error', 'SYSTEM', { event: 'api-error', error: 'No file uploaded or invalid file type.', endpoint: req.originalUrl });
             return res.status(400).json({ status: 'error', message: 'No file uploaded or invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF, DOC, DOCX, XLS, XLSX, MP3, MP4, OGG, WAV, WEBM, MOV. Max size: 25MB.' });
         }
-        const mediaId = req.file.filename;
-        log('File uploaded', mediaId, { event: 'file-uploaded', mediaId });
-        res.status(201).json({
-            status: 'success',
-            message: 'File uploaded successfully.',
-            mediaId: mediaId,
-            url: `/media/${mediaId}`
-        });
+
+        try {
+            const { fileTypeFromFile } = await import('file-type');
+            const fileTypeInfo = await fileTypeFromFile(req.file.path);
+            if (!fileTypeInfo || !ALLOWED_MIME_TYPES.includes(fileTypeInfo.mime)) {
+                fs.unlinkSync(req.file.path);
+                log('API error', 'SYSTEM', { event: 'api-error', error: 'File signature does not match allowed types.', endpoint: req.originalUrl });
+                return res.status(400).json({ status: 'error', message: 'Invalid file signature. File rejected.' });
+            }
+
+            // Antivirus Scan
+            if (clamscan) {
+                try {
+                    const { isInfected, file, viruses } = await clamscan.isInfected(req.file.path);
+                    if (isInfected) {
+                        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+                        log('API error', 'SECURITY', { event: 'av-detected', file, viruses, endpoint: req.originalUrl }, 'ERROR');
+                        return res.status(400).json({ status: 'error', message: 'Malware detected in uploaded file. File rejected.' });
+                    }
+                } catch (avErr) {
+                    log(`AV Scan failed, proceeding without AV: ${avErr.message}`, 'SYSTEM', null, 'WARN');
+                }
+            }
+
+            const mediaId = req.file.filename;
+            log('File uploaded', mediaId, { event: 'file-uploaded', mediaId });
+            res.status(201).json({
+                status: 'success',
+                message: 'File uploaded successfully.',
+                mediaId: mediaId,
+                url: `/media/${mediaId}`
+            });
+        } catch (error) {
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            log('API error', 'SYSTEM', { event: 'api-error', error: error.message, endpoint: req.originalUrl });
+            res.status(500).json({ status: 'error', message: 'Failed to process file upload.' });
+        }
     });
 
     // Get credit history

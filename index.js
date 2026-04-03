@@ -176,7 +176,16 @@ app.use((req, res, next) => {
 });
 
 app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.clerk.com", "https://umami.kamtech.online"],
+            connectSrc: ["'self'", "https://api.clerk.com", "wss://*", "https://*"],
+            imgSrc: ["'self'", "data:", "https://*"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"]
+        }
+    },
     crossOriginEmbedderPolicy: false
 }));
 
