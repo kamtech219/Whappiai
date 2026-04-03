@@ -25,6 +25,17 @@ import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender, safeDate, ensureNumber } from "@/lib/utils"
 import { Save, Loader2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser()
@@ -33,6 +44,8 @@ export default function ProfilePage() {
   const [dbUser, setDbUser] = React.useState<any>(null)
   const [loading, setLoading] = React.useState(true)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState("")
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const fetchDbUser = React.useCallback(async () => {
      try {
@@ -67,6 +80,20 @@ export default function ProfilePage() {
       toast.error("Erreur lors de la mise à jour")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "SUPPRIMER") return
+    setIsDeleting(true)
+    try {
+      const token = await getToken()
+      await api.users.deleteProfile(token || undefined)
+      toast.success("Compte supprimé avec succès")
+      await signOut()
+    } catch (e) {
+      toast.error("Erreur lors de la suppression du compte")
+      setIsDeleting(false)
     }
   }
 
@@ -204,7 +231,39 @@ export default function ProfilePage() {
             <div className="pt-6 border-t border-dashed">
                <h4 className="text-[10px] font-semibold text-destructive  mb-3">Zone de Danger</h4>
                <p className="text-xs text-muted-foreground mb-4">La suppression de votre compte est irréversible et effacera toutes vos sessions WhatsApp ainsi que vos historiques IA.</p>
-               <Button variant="outline" className="text-xs text-destructive hover:bg-destructive hover:text-white transition-all rounded-full px-6">Supprimer mon compte définitvement</Button>
+               <AlertDialog>
+                 <AlertDialogTrigger asChild>
+                   <Button variant="outline" className="text-xs text-destructive hover:bg-destructive hover:text-white transition-all rounded-full px-6">Supprimer mon compte définitivement</Button>
+                 </AlertDialogTrigger>
+                 <AlertDialogContent>
+                   <AlertDialogHeader>
+                     <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                     <AlertDialogDescription>
+                       Cette action est irréversible. Cela supprimera définitivement votre compte et effacera toutes vos sessions WhatsApp, données et historiques de nos serveurs.
+                     </AlertDialogDescription>
+                   </AlertDialogHeader>
+                   <div className="my-4">
+                     <Label className="text-xs font-semibold mb-2 block">Tapez "SUPPRIMER" pour confirmer :</Label>
+                     <Input
+                       value={deleteConfirmation}
+                       onChange={(e) => setDeleteConfirmation(e.target.value)}
+                       placeholder="SUPPRIMER"
+                       className="border-destructive/50 focus-visible:ring-destructive"
+                     />
+                   </div>
+                   <AlertDialogFooter>
+                     <AlertDialogCancel onClick={() => setDeleteConfirmation("")}>Annuler</AlertDialogCancel>
+                     <AlertDialogAction
+                       onClick={handleDeleteAccount}
+                       disabled={deleteConfirmation !== "SUPPRIMER" || isDeleting}
+                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                     >
+                       {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                       Supprimer définitivement
+                     </AlertDialogAction>
+                   </AlertDialogFooter>
+                 </AlertDialogContent>
+               </AlertDialog>
             </div>
          </div>
       </div>
