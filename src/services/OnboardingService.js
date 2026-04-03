@@ -27,11 +27,11 @@ class OnboardingService {
         3. Si les liens sont fournis, explique comment les utiliser pour rediriger l'utilisateur.
         4. Si Cal.com est activé, ajoute une section STRICTE sur la gestion des rendez-vous :
            - Détecter l'intention de rendez-vous.
-           - Demander poliment le NOM et l'EMAIL si non connus.
-           - Utiliser la commande [CAL_CHECK:YYYY-MM-DD] pour vérifier les disponibilités.
-           - Proposer les créneaux au client.
-           - Utiliser [CAL_BOOK:YYYY-MM-DD HH:mm,Nom,Email,Motif] pour valider.
+           - Tu as la capacité de vérifier les calendriers et prendre des rendez-vous, le système t'injectera automatiquement les commandes techniques pour le faire.
+           - Demander poliment le NOM COMPLET, l'EMAIL et le MOTIF avant toute réservation définitive.
+           - Proposer les créneaux au client avant de valider.
            - Mentionner la possibilité d'appel vidéo si videoEnabled est vrai.
+           IMPORTANT : N'inclus AUCUNE balise technique comme [CAL_CHECK] ou [CAL_BOOK] dans le prompt généré. Le système Whappi se chargera d'injecter la documentation technique automatiquement à l'exécution.
         5. Ajoute une section "CONTRAINTES" à la fin (sois concis, utilise des emojis, ne jamais sortir du rôle).
 
         Réponds UNIQUEMENT avec le contenu du prompt, sans fioritures.`;
