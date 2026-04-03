@@ -5,3 +5,7 @@
 ## 2024-05-20 - [Optimize Webhook Dispatch]
 **Learning:** In `src/services/WebhookService.js`, webhooks were previously dispatched using a sequential `for...of` loop where the `this.send` (which uses Axios) was called without an `await`. This effectively launched all outgoing HTTP requests instantaneously and simultaneously. While non-blocking to the Node event loop, launching unbounded concurrent Axios requests for many webhooks can lead to immediate socket exhaustion (`EMFILE`), `EADDRNOTAVAIL` errors, or memory spikes.
 **Action:** When dispatching background network requests over arrays, even if you do not want to block the caller, you must use chunking combined with `Promise.allSettled` (e.g., `CONCURRENCY_LIMIT = 10`) to enforce a safe maximum number of parallel outbound connections.
+
+## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
+**Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
+**Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
