@@ -200,6 +200,7 @@ class User {
         const allowedFields = [
             'email', 'name', 'role', 'is_active', 'bio', 'location', 'website', 'phone',
             'timezone', 'address', 'organization_name', 'sound_notifications',
+            'email_notifications', 'push_notifications',
             'cal_access_token', 'cal_refresh_token', 'cal_token_expiry',
             'ai_cal_enabled', 'ai_cal_video_allowed'
         ];
