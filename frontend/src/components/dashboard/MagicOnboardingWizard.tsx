@@ -275,12 +275,16 @@ export function MagicOnboardingWizard({
                 />
               </div>
 
-              {!calStatus?.isConnected && (
+              {!calStatus?.isConnected ? (
                 <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg text-center space-y-3">
-                  <p className="text-xs text-amber-600 font-medium italic">Connectez votre compte Cal.com pour activer ces options</p>
+                  <p className="text-xs text-amber-600 font-medium italic">Connectez votre compte Cal.com pour activer ces options et générer des liens de visioconférence.</p>
                   <Button size="sm" variant="outline" className="h-8 text-xs gap-2" onClick={connectCal}>
                     <Calendar className="h-3 w-3" /> Connecter Cal.com
                   </Button>
+                </div>
+              ) : (
+                <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-lg text-center space-y-3">
+                  <p className="text-xs text-green-600 font-medium italic">Votre compte Cal.com est connecté ! Les rendez-vous et les appels vidéo peuvent être gérés par l&apos;IA.</p>
                 </div>
               )}
             </div>

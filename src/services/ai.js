@@ -658,13 +658,19 @@ class AIService {
                             }
                             try {
                                 const startTime = new Date(dateTime.trim()).toISOString();
-                                const booking = await CalService.createBooking(calOwner.id, {
+                                const bookingDetails = {
                                     eventTypeId: eventTypeId,
                                     start: startTime,
                                     name: name.trim(),
                                     email: email.trim(),
                                     notes: (notes || "").trim()
-                                });
+                                };
+
+                                if (calOwner.ai_cal_video_allowed) {
+                                    bookingDetails.location = "integrations:daily";
+                                }
+
+                                const booking = await CalService.createBooking(calOwner.id, bookingDetails);
 
                                 let confirmationText = `✅ Rendez-vous confirmé pour le ${new Date(startTime).toLocaleString()} !`;
                                 if (booking && booking.videoCallUrl) {
