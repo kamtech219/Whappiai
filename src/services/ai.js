@@ -615,10 +615,11 @@ class AIService {
                 const CalService = require('./CalService');
 
                 // 1. [CAL_CHECK:YYYY-MM-DD,EVENT_TYPE_ID]
-                const checkMatch = finalResponse.match(/\[CAL_CHECK:([\d-]{10})(?:,(\d+))?\]/);
+                const checkRegex = /\[CAL_CHECK:\s*([\d-]{10})(?:,\s*(\d+))?\s*\]/;
+                const checkMatch = finalResponse.match(checkRegex);
                 if (checkMatch) {
-                    const date = checkMatch[1];
-                    const requestedTypeId = checkMatch[2];
+                    const date = checkMatch[1].trim();
+                    const requestedTypeId = checkMatch[2] ? checkMatch[2].trim() : null;
                     try {
                         const eventTypes = await CalService.getEventTypes(calOwner.id);
                         if (Array.isArray(eventTypes) && eventTypes.length > 0) {
@@ -634,17 +635,18 @@ class AIService {
                                 ? `Voici les disponibilités pour le ${date} :\n` + slots.slice(0, 5).map(s => `- ${new Date(s.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`).join('\n')
                                 : `Désolé, aucune disponibilité pour le ${date}.`;
 
-                            finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}(?:,\d+)?\]/, slotsText);
+                            finalResponse = finalResponse.replace(checkRegex, slotsText);
                         } else {
-                            finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}(?:,\d+)?\]/, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
+                            finalResponse = finalResponse.replace(checkRegex, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
                         }
                     } catch (err) {
-                        finalResponse = finalResponse.replace(/\[CAL_CHECK:[\d-]{10}(?:,\d+)?\]/, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
+                        finalResponse = finalResponse.replace(checkRegex, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
                     }
                 }
 
                 // 2. [CAL_BOOK:YYYY-MM-DD HH:mm,Nom,Email,Motif,EVENT_TYPE_ID]
-                const bookMatch = finalResponse.match(/\[CAL_BOOK:([^,]+),([^,]+),([^,]+),?([^,\]]*)(?:,(\d+))?\]/);
+                const bookRegex = /\[CAL_BOOK:\s*([^,]+),\s*([^,]+),\s*([^,]+),?\s*([^,\]]*)(?:,\s*(\d+))?\s*\]/;
+                const bookMatch = finalResponse.match(bookRegex);
                 if (bookMatch) {
                     const [_, dateTime, name, email, notes, requestedTypeId] = bookMatch;
                     try {
@@ -655,7 +657,7 @@ class AIService {
                                 eventTypeId = parseInt(requestedTypeId, 10);
                             }
                             try {
-                                const startTime = new Date(dateTime).toISOString();
+                                const startTime = new Date(dateTime.trim()).toISOString();
                                 const booking = await CalService.createBooking(calOwner.id, {
                                     eventTypeId: eventTypeId,
                                     start: startTime,
@@ -669,15 +671,15 @@ class AIService {
                                     confirmationText += `\nLien vidéo : ${booking.videoCallUrl}`;
                                 }
 
-                                finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, confirmationText);
+                                finalResponse = finalResponse.replace(bookRegex, confirmationText);
                             } catch (err) {
-                                finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, une erreur est survenue lors de la réservation. Le créneau est peut-être déjà pris.");
+                                finalResponse = finalResponse.replace(bookRegex, "Désolé, une erreur est survenue lors de la réservation. Le créneau est peut-être déjà pris.");
                             }
                         } else {
-                            finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
+                            finalResponse = finalResponse.replace(bookRegex, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
                         }
                     } catch (err) {
-                        finalResponse = finalResponse.replace(/\[CAL_BOOK:[^\]]+\]/, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
+                        finalResponse = finalResponse.replace(bookRegex, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
                     }
                 }
             }
@@ -832,7 +834,9 @@ class AIService {
                         finalSystemPrompt += `
 
 [CALENDRIER ET RENDEZ-VOUS]
-Tu es connecté à l'agenda Cal.com de l'utilisateur. Tu peux vérifier les disponibilités et prendre des rendez-vous.`;
+Tu es connecté à l'agenda Cal.com de l'utilisateur. Tu as la capacité de vérifier les disponibilités et de prendre des rendez-vous pour lui en utilisant des commandes spéciales.
+Ces commandes doivent TOUJOURS être utilisées exactement comme indiqué.
+`;
                         finalSystemPrompt += `
 Types de rendez-vous disponibles :`;
                         eventTypes.forEach(et => {
@@ -842,7 +846,7 @@ Types de rendez-vous disponibles :`;
 
                         finalSystemPrompt += `
 
-Pour vérifier les disponibilités, utilise UNIQUEMENT cette syntaxe exacte dans ta réponse :`;
+Si l'utilisateur demande tes disponibilités ou veut planifier un rendez-vous à une certaine date, utilise la commande suivante pour vérifier :`;
                         finalSystemPrompt += `
 [CAL_CHECK:YYYY-MM-DD,ID_TYPE_RDV]`;
                         finalSystemPrompt += `
@@ -850,7 +854,8 @@ Exemple : [CAL_CHECK:2024-05-01,${eventTypes[0].id}]`;
 
                         finalSystemPrompt += `
 
-Pour prendre un rendez-vous, demande d'abord le nom, l'email et le motif (si applicable). Une fois que tu as toutes ces informations et qu'un créneau est choisi (par ex. 14:00), utilise UNIQUEMENT cette syntaxe exacte dans ta réponse :`;
+Pour prendre un rendez-vous, tu as besoin : d'une date et heure précises, du nom complet du client, de son email, et du motif.
+Une fois que tu as TOUTES ces informations, utilise la commande suivante pour réserver :`;
                         finalSystemPrompt += `
 [CAL_BOOK:YYYY-MM-DD HH:mm,Nom,Email,Motif,ID_TYPE_RDV]`;
                         finalSystemPrompt += `
@@ -858,7 +863,10 @@ Exemple : [CAL_BOOK:2024-05-01 14:00,Jean Dupont,jean@email.com,Consultation,${e
 
                         finalSystemPrompt += `
 
-NOTE IMPORTANTE: Ne génère pas toi-même la réponse finale pour les disponibilités ou la confirmation du rendez-vous, retourne juste le tag [CAL_CHECK:...] ou [CAL_BOOK:...]. Le système interceptera le tag et l'exécutera.`;
+RÈGLES STRICTES POUR CAL.COM :
+1. Si tu utilises une commande [CAL_CHECK:...] ou [CAL_BOOK:...], elle DOIT être sur sa propre ligne.
+2. Ne simule jamais le résultat d'une vérification ou d'une réservation. Utilise TOUJOURS la commande.
+3. Le système remplacera ta commande par la vraie réponse (les créneaux ou la confirmation).`;
                     }
                 } catch (err) {
                     log(`Failed to inject Cal.com context: ${err.message}`, user.id, { error: err.message }, 'WARN');
