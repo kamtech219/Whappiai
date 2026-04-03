@@ -355,6 +355,9 @@ export const api = {
       body: JSON.stringify({ planId }),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
+    history: (token?: string) => fetchApi("/api/v1/payments/history", {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
   },
   ai: {
     listModels: (token?: string) => fetchApi("/api/v1/ai-models", {

@@ -57,7 +57,11 @@ const plans = [
   },
 ]
 
-export function BillingPlans() {
+interface BillingPlansProps {
+  currentPlan?: string;
+}
+
+export function BillingPlans({ currentPlan }: BillingPlansProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const { getToken } = useAuth()
 
@@ -65,15 +69,34 @@ export function BillingPlans() {
     try {
       setLoading(planId)
       const token = await getToken()
-      const response = await fetchApi('/api/v1/payments/checkout', {
-        method: 'POST',
-        body: JSON.stringify({ planId }),
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (response.url) {
-        window.location.href = response.url
+
+      if (planId === 'starter' || planId === 'pro' || planId === 'business') {
+        const response = await fetchApi('/api/v1/subscriptions/change-plan', {
+          method: 'POST',
+          body: JSON.stringify({ planId }),
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        if (response.status === 'success') {
+          toast.success("Plan mis à jour avec succès. Redirection vers la caisse si nécessaire...")
+          // In a real flow, if it requires payment, backend would return a checkout url instead
+          // Here we just refresh the page to show the new plan
+          setTimeout(() => window.location.reload(), 1500)
+        } else {
+          toast.error(response.message || "Impossible de changer de plan")
+        }
       } else {
-        toast.error("Impossible d'initialiser le paiement")
+        // Fallback or specific checkout logic
+        const response = await fetchApi('/api/v1/payments/checkout', {
+          method: 'POST',
+          body: JSON.stringify({ planId }),
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (response.url) {
+          window.location.href = response.url
+        } else {
+          toast.error("Impossible d'initialiser le paiement")
+        }
       }
     } catch (error) {
       toast.error("Une erreur inattendue est survenue")
@@ -111,14 +134,24 @@ export function BillingPlans() {
             </ul>
           </CardContent>
           <CardFooter className="p-6 pt-0">
-            <Button
-              className="w-full"
-              variant={plan.highlighted ? "default" : "outline"}
-              onClick={() => handleSubscribe(plan.id)}
-              disabled={loading === plan.id}
-            >
-              {loading === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : plan.cta}
-            </Button>
+            {currentPlan === plan.id ? (
+              <Button
+                className="w-full"
+                variant="outline"
+                disabled={true}
+              >
+                Plan Actuel
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                variant={plan.highlighted ? "default" : "outline"}
+                onClick={() => handleSubscribe(plan.id)}
+                disabled={loading === plan.id}
+              >
+                {loading === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : plan.cta}
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}

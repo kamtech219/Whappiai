@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { createCheckoutSession, handleWebhook } = require('../services/payment');
 const PricingService = require('../services/PricingService');
 const { log } = require('../utils/logger');
+const { db } = require('../config/database');
 
 // POST /api/v1/payments/checkout
 router.post('/checkout', ClerkExpressWithAuth(), async (req, res) => {
@@ -26,6 +27,22 @@ router.post('/checkout', ClerkExpressWithAuth(), async (req, res) => {
     } catch (error) {
         log('Erreur lors de la création du lien de paiement', 'PAYMENT', { error: error.message }, 'ERROR');
         res.status(500).json({ error: 'Erreur lors de la création du lien de paiement' });
+    }
+});
+
+// GET /api/v1/payments/history
+router.get('/history', ClerkExpressWithAuth(), async (req, res) => {
+    try {
+        const userId = req.auth.userId;
+        if (!userId) {
+            return res.status(401).json({ error: 'Non autorisé' });
+        }
+
+        const history = db.prepare('SELECT * FROM credit_history WHERE user_id = ? AND type = "purchase" ORDER BY created_at DESC').all(userId);
+        res.json({ status: 'success', data: history });
+    } catch (error) {
+        log('Erreur lors de la récupération de l\'historique des paiements', 'PAYMENT', { error: error.message }, 'ERROR');
+        res.status(500).json({ error: 'Impossible de récupérer l\'historique des paiements' });
     }
 });
 

@@ -382,6 +382,36 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
 
         try {
+            // Verify Session Limits before creating
+            if (req.currentUser && req.currentUser.role !== 'admin') {
+                const user = User.findByEmail(req.currentUser.email);
+                if (user) {
+                    const sessionIds = Session.getSessionIdsByOwner(user.email);
+                    const activeSockets = require('../services/whatsapp').getActiveSessions();
+
+                    // Count only CONNECTED or active sessions
+                    let activeCount = 0;
+                    sessionIds.forEach(id => {
+                        const s = Session.findById(id);
+                        if (s && s.status === 'CONNECTED' && activeSockets.has(id)) {
+                            activeCount++;
+                        }
+                    });
+
+                    // Determine max sessions based on plan
+                    let maxSessions = 1; // Free/Starter default
+                    if (user.plan_id === 'pro') maxSessions = 3;
+                    if (user.plan_id === 'business') maxSessions = 999; // Unlimited
+
+                    if (activeCount >= maxSessions && maxSessions !== 999) {
+                        return res.status(403).json({
+                            status: 'error',
+                            message: `Limite de sessions atteinte (${activeCount}/${maxSessions}). Veuillez passer à un plan supérieur.`
+                        });
+                    }
+                }
+            }
+
             // Pass the creator email and optional phoneNumber to createSession
             const creatorEmail = req.currentUser ? req.currentUser.email : null;
             await createSession(sanitizedSessionId, creatorEmail, phoneNumber);
