@@ -248,6 +248,55 @@ class User {
     }
 
     /**
+     * Delete user and all associated data
+     * @param {string} id - User ID
+     * @returns {Promise<boolean>} True if deleted successfully
+     */
+    static async deleteUser(id) {
+        const user = this.findById(id);
+        if (!user) throw new Error('User not found');
+
+        const Session = require('./Session');
+        const whatsappService = require('../services/whatsapp');
+
+        // Retrieve and disconnect all sessions
+        const sessionIds = Session.getSessionIdsByOwner(user.email);
+        for (const sessionId of sessionIds) {
+            try {
+                await whatsappService.deleteSessionData(sessionId);
+            } catch (err) {
+                log(`Failed to delete session data for ${sessionId}: ${err.message}`, 'SYSTEM', null, 'WARN');
+            }
+        }
+
+        // Database transaction to delete all associated records
+        const deleteTransaction = db.transaction(() => {
+            db.exec('PRAGMA defer_foreign_keys = ON;');
+
+            // Delete activity logs
+            db.prepare('DELETE FROM activity_logs WHERE user_email = ?').run(user.email);
+
+            // Delete credit history
+            db.prepare('DELETE FROM credit_history WHERE user_id = ?').run(id);
+
+            // Delete whatsapp sessions
+            db.prepare('DELETE FROM whatsapp_sessions WHERE owner_email = ?').run(user.email);
+
+            // Delete user
+            db.prepare('DELETE FROM users WHERE id = ?').run(id);
+        });
+
+        try {
+            deleteTransaction();
+            log(`User ${user.email} and all associated data deleted successfully.`, 'SYSTEM', { userId: id });
+            return true;
+        } catch (error) {
+            log(`Failed to delete user data for ${user.email}: ${error.message}`, 'SYSTEM', null, 'ERROR');
+            throw error;
+        }
+    }
+
+    /**
      * Get all users
      * @returns {array} Array of users
      */

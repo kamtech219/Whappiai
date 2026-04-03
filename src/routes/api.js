@@ -1461,6 +1461,19 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     // Main message sending endpoint
+    // Delete profile endpoint for the authenticated user
+    router.delete('/profile', checkSessionOrTokenAuth, async (req, res) => {
+        try {
+            log(`Delete profile request by ${req.currentUser.email}`, 'AUTH');
+            // Assuming User.deleteUser handles deleting everything
+            await User.deleteUser(req.currentUser.id);
+            res.status(200).json({ status: 'success', message: 'Account and all associated data deleted successfully.' });
+        } catch (error) {
+            log(`Failed to delete profile: ${error.message}`, 'SYSTEM', { event: 'api-error', error: error.message, endpoint: req.originalUrl }, 'ERROR');
+            res.status(500).json({ status: 'error', message: `Failed to delete account: ${error.message}` });
+        }
+    });
+
     router.post('/messages', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, query: req.query });
         const { sessionId } = req.query;

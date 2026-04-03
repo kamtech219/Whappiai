@@ -336,6 +336,10 @@ export const api = {
       body: JSON.stringify(data),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
+    deleteProfile: (token?: string) => fetchApi("/api/v1/profile", {
+      method: "DELETE",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    }),
     updateAIConfig: (data: any, token?: string) => fetchApi("/admin/users/profile/ai", {
       method: "POST",
       body: JSON.stringify(data),
