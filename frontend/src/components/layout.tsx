@@ -43,6 +43,7 @@ import { WebSocketProvider, useWebSocket } from "@/providers/websocket-provider"
 import { Logo } from "@/components/ui/logo"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { NotificationDropdown } from "@/components/dashboard/notification-dropdown"
+import { KnowledgeBasePanel } from "@/components/dashboard/knowledge-base-panel"
 import { OnboardingTour } from "@/components/dashboard/onboarding-tour"
 import { useI18n } from "@/i18n/i18n-provider"
 
@@ -258,6 +259,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 >
                   {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
+                <KnowledgeBasePanel />
                 <NotificationDropdown />
                 <div className="pl-1 border-l ml-1">
                    <UserButton afterSignOutUrl="/login" />

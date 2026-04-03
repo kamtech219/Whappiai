@@ -1,16 +1,16 @@
 {
   "nav": {
     "hubs": {
-      "pilotage": "PILOTAGE HUB",
-      "config": "CONFIGURATION BOT",
-      "client": "ESPACE CLIENT",
+      "pilotage": "ACCUEIL",
+      "config": "ASSISTANT VIRTUEL",
+      "client": "MON COMPTE",
       "admin": "ADMINISTRATION"
     },
     "overview": "Tableau de Bord",
-    "activities": "Journal Activités",
-    "ai_assistant": "Intelligence & IA",
-    "auto_responses": "Mots-clés Auto",
-    "group_management": "Gestion Groupes",
+    "activities": "Historique",
+    "ai_assistant": "Configuration IA",
+    "auto_responses": "Mots-clés",
+    "group_management": "Engagement & Groupes",
     "credits": "Facturation",
     "users": "Utilisateurs",
     "ai_models": "Moteurs IA",

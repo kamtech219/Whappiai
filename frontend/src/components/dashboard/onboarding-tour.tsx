@@ -64,8 +64,8 @@ export function OnboardingTour() {
         {
           element: '#nav--dashboard-ai',
           popover: {
-            title: 'Intelligence Artificielle',
-            description: 'Donnez un cerveau à votre WhatsApp. Configurez les modèles, les prompts et les règles d\'automatisation intelligentes.',
+            title: 'Intelligence Artificielle (IA)',
+            description: 'C\'est ici que vous configurez le "cerveau" de votre compte WhatsApp. Vous pouvez activer un répondeur automatique avec des mots-clés (pour répondre automatiquement à des mots précis) ou une IA complète.',
             side: "right",
             align: 'start'
           }
@@ -73,8 +73,8 @@ export function OnboardingTour() {
         {
           element: '#nav--dashboard-moderation',
           popover: {
-            title: 'Gestion des Groupes',
-            description: 'Protégez vos communautés. Anti-spam, filtres de mots-clés et messages de bienvenue automatisés se configurent ici.',
+            title: 'Engagement et Groupes',
+            description: 'Vous animez des groupes ? Ici, vous pouvez configurer des messages de bienvenue, un filtre anti-spam simple, et gérer la communauté facilement.',
             side: "right",
             align: 'start'
           }
