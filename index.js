@@ -31,6 +31,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const { createClerkClient, ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
+const promClient = require('prom-client');
 
 // Import new modules
 const { db } = require('./src/config/database');
@@ -66,6 +67,19 @@ if (!ENCRYPTION_KEY || !isValidKey(ENCRYPTION_KEY)) {
 
 // Initialize Express
 const app = express();
+
+// Initialize Prometheus metrics
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+collectDefaultMetrics({ prefix: 'whappi_' });
+
+app.get('/metrics', async (req, res) => {
+    try {
+        res.set('Content-Type', promClient.register.contentType);
+        res.end(await promClient.register.metrics());
+    } catch (ex) {
+        res.status(500).end(ex);
+    }
+});
 
 // Apply compression middleware to optimize LCP by reducing payload size (Gzip/Brotli)
 app.use(compression());
@@ -228,7 +242,10 @@ app.use((req, res, next) => {
 // WebSocket heartbeat
 const heartbeat = setInterval(() => {
     wss.clients.forEach((ws) => {
-        if (ws.isAlive === false) return ws.terminate();
+        if (ws.isAlive === false) {
+            wsClients.delete(ws);
+            return ws.terminate();
+        }
         ws.isAlive = false;
         ws.ping();
     });

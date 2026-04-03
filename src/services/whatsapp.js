@@ -32,6 +32,7 @@ const logger = pino({ level: process.env.LOG_LEVEL || defaultLogLevel });
 
 // Active socket connections (in-memory)
 const activeSockets = new Map();
+const sessionLastActivity = new Map();
 const retryCounters = new Map();
 const reconnectTimeouts = new Map();
 const lastQrs = new Map();
@@ -40,6 +41,19 @@ const deletingSessions = new Set();
 
 // Auth directory
 const AUTH_DIR = path.join(__dirname, '../../auth_info_baileys');
+
+// Session memory management
+setInterval(() => {
+    const now = Date.now();
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    for (const [sessionId, lastActivity] of sessionLastActivity.entries()) {
+        if (now - lastActivity > TWO_HOURS) {
+            log(`Session ${sessionId} inactive depuis 2 heures, déconnexion pour libérer la mémoire.`, 'SYSTEM', { sessionId, event: 'memory-cleanup' }, 'INFO');
+            disconnect(sessionId, false);
+            sessionLastActivity.delete(sessionId);
+        }
+    }
+}, 30 * 60 * 1000); // Check every 30 minutes
 
 /**
  * Ensure auth directory exists
@@ -194,6 +208,7 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
     // Store socket reference and set active flag
     sock.isActive = true;
     activeSockets.set(sessionId, sock);
+    sessionLastActivity.set(sessionId, Date.now());
 
     // Handle credentials update EARLY
     sock.ev.on('creds.update', saveCreds);
@@ -522,6 +537,7 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
 
     // Handle incoming messages
     sock.ev.on('messages.upsert', async (m) => {
+        sessionLastActivity.set(sessionId, Date.now());
         const msg = m.messages[0];
         const remoteJid = msg.key.remoteJid;
 

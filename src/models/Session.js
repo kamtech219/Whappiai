@@ -10,9 +10,12 @@ const path = require('path');
 const crypto = require('crypto');
 const { log } = require('../utils/logger');
 const { encrypt, decrypt } = require('../utils/crypto');
+const MemoryCache = require('../utils/cache');
 
 const SESSION_DIR = path.join(process.cwd(), 'auth_info_baileys');
 const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
+
+const sessionCache = new MemoryCache(60); // 60 seconds TTL
 
 class Session {
     /**
@@ -63,6 +66,9 @@ class Session {
      * @returns {object|null} Session object or null
      */
     static findById(sessionId) {
+        const cached = sessionCache.get(sessionId);
+        if (cached) return cached;
+
         const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
         const session = stmt.get(sessionId);
 
@@ -72,6 +78,10 @@ class Session {
             } catch (e) {
                 log(`Failed to decrypt AI key for session ${sessionId}`, 'SECURITY', { error: e.message }, 'ERROR');
             }
+        }
+
+        if (session) {
+            sessionCache.set(sessionId, session);
         }
 
         return session;
@@ -134,6 +144,7 @@ class Session {
             WHERE id = ?
         `);
         stmt.run(newStatus, newDetail, newPairingCode, newQrCode, sessionId);
+        sessionCache.delete(sessionId);
         return this.findById(sessionId);
     }
 
@@ -211,6 +222,7 @@ class Session {
             ai_business_end !== undefined ? ai_business_end : (existing.ai_business_end ?? 18),
             sessionId
         );
+        sessionCache.delete(sessionId);
         return this.findById(sessionId);
     }
 
@@ -258,6 +270,7 @@ class Session {
     static delete(sessionId) {
         const stmt = db.prepare('DELETE FROM whatsapp_sessions WHERE id = ?');
         const result = stmt.run(sessionId);
+        sessionCache.delete(sessionId);
         return result.changes > 0;
     }
 

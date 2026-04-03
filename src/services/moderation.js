@@ -4,6 +4,7 @@ const { Session, ActivityLog, User } = require('../models');
 const { log } = require('../utils/logger');
 const CreditService = require('./CreditService');
 const QueueService = require('./QueueService');
+const MemoryCache = require('../utils/cache');
 
 /**
  * Moderation Service
@@ -12,6 +13,22 @@ const QueueService = require('./QueueService');
 
 // Simple cache for group metadata to avoid over-fetching
 const groupMetadataCache = new Map();
+const groupSettingsCache = new MemoryCache(300); // 5 min TTL
+
+/**
+ * Get group settings with caching
+ */
+function getGroupSettings(groupId, sessionId) {
+    const cacheKey = `${sessionId}:${groupId}`;
+    const cached = groupSettingsCache.get(cacheKey);
+    if (cached) return cached;
+
+    const settings = db.prepare('SELECT * FROM group_settings WHERE group_id = ? AND session_id = ?').get(groupId, sessionId);
+    if (settings) {
+        groupSettingsCache.set(cacheKey, settings);
+    }
+    return settings;
+}
 
 /**
  * Get group metadata with caching and retry logic
@@ -286,6 +303,8 @@ function updateGroupSettings(sessionId, groupId, settings) {
         updated_at = CURRENT_TIMESTAMP
     `);
     
+    groupSettingsCache.delete(`${sessionId}:${groupId}`);
+
     stmt.run(groupId, sessionId, is_active, anti_link, bad_words, warning_template, max_warnings, welcome_enabled, welcome_template, ai_assistant_enabled, warning_reset_days);
 }
 
@@ -301,7 +320,7 @@ async function handleParticipantUpdate(sock, sessionId, update) {
     if (action !== 'add') return;
     
     try {
-        const settings = db.prepare('SELECT * FROM group_settings WHERE group_id = ? AND session_id = ?').get(groupId, sessionId);
+        const settings = getGroupSettings(groupId, sessionId);
         
         if (!settings || !settings.welcome_enabled || !settings.welcome_template) {
             return;
@@ -401,7 +420,7 @@ async function handleIncomingMessage(sock, sessionId, msg) {
     const senderJid = jidNormalizedUser(msg.key.participant || msg.participant || msg.key.remoteJid);
     
     // 1. Get Settings
-    const settings = db.prepare('SELECT * FROM group_settings WHERE group_id = ? AND session_id = ?').get(groupId, sessionId);
+    const settings = getGroupSettings(groupId, sessionId);
 
     const myJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     const isTagged = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.includes(myJid);

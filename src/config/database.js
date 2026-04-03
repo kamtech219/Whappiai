@@ -190,6 +190,11 @@ function initializeSchema() {
         )
     `);
 
+    // Nouveaux index pour optimisation
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_whatsapp_sessions_owner ON whatsapp_sessions(owner_email)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_group_settings_session_group ON group_settings(session_id, group_id)`);
+
     // User Warnings
     db.exec(`
         CREATE TABLE IF NOT EXISTS user_warnings (
