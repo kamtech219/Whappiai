@@ -567,6 +567,25 @@ function initializeSchema() {
         });
     });
 
+    // Add user notification preferences
+    runner.run('users-notification-preferences-v1', (db) => {
+        const info = db.prepare("PRAGMA table_info(users)").all();
+        const columns = [
+            { name: 'email_notifications', type: 'INTEGER DEFAULT 1' },
+            { name: 'push_notifications', type: 'INTEGER DEFAULT 1' }
+        ];
+        columns.forEach(col => {
+            if (!info.some(c => c.name === col.name)) {
+                try {
+                    db.exec(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`);
+                    log(`Migration : Colonne ${col.name} ajoutée avec succès`, "SYSTEM");
+                } catch (e) {
+                    log(`Migration : Échec ajout ${col.name}`, "SYSTEM", { error: e.message }, "ERROR");
+                }
+            }
+        });
+    });
+
     log('Schéma de la base de données initialisé avec succès', 'SYSTEM', { event: 'db-schema-init' }, 'INFO');
 }
 
