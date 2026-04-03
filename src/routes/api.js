@@ -816,6 +816,46 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
+    router.post('/sessions/:sessionId/ai/simulate', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
+        const { sessionId } = req.params;
+        const aiService = require('../services/ai');
+        try {
+            const { message, config } = req.body;
+            if (!message) {
+                return res.status(400).json({ status: 'error', message: 'Message requis pour la simulation' });
+            }
+
+            // Get base session
+            const session = Session.findById(sessionId);
+            if (!session) {
+                return res.status(404).json({ status: 'error', message: 'Session not found' });
+            }
+
+            // Create a mock user object merging session and unsaved config
+            const mockUserObj = {
+                ...session,
+                ai_endpoint: config?.endpoint || config?.ai_endpoint || session.ai_endpoint,
+                ai_key: config?.key || config?.ai_key || session.ai_key,
+                ai_model: config?.model || session.ai_model,
+                ai_prompt: config?.prompt || session.ai_prompt,
+                ai_temperature: config?.ai_temperature || config?.temperature || session.ai_temperature,
+                ai_max_tokens: config?.max_tokens || session.ai_max_tokens
+            };
+
+            // Security check
+            if (req.currentUser.role !== 'admin') {
+                mockUserObj.ai_endpoint = session.ai_endpoint;
+                mockUserObj.ai_key = session.ai_key;
+            }
+
+            const responseText = await aiService.callAI(mockUserObj, message, mockUserObj.ai_prompt, []);
+            res.json({ status: 'success', data: { response: responseText } });
+        } catch (error) {
+            log(`Simulation error: ${error.message}`, sessionId, { error: error.message }, 'ERROR');
+            res.status(500).json({ status: 'error', message: error.message });
+        }
+    });
+
     router.post('/sessions/:sessionId/ai/test', checkSessionOrTokenAuth, ensureOwnership, async (req, res) => {
         const { sessionId } = req.params;
         const aiService = require('../services/ai');

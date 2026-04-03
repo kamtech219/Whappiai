@@ -11,6 +11,7 @@ const WebhookService = require('./WebhookService');
 const QueueService = require('./QueueService');
 const { log } = require('../utils/logger');
 const { db } = require('../config/database');
+const stringSimilarity = require('string-similarity');
 
 // Memory-only flags to temporarily pause AI for specific conversations
 const pausedConversations = new Map();
@@ -282,20 +283,33 @@ class AIService {
      * @param {string} remoteJid
      * @returns {boolean}
      */
-    static isLoopDetected(sessionId, remoteJid) {
+    static isLoopDetected(sessionId, remoteJid, newResponseContent = null) {
         const key = `${sessionId}:${remoteJid}`;
         const now = Date.now();
         const history = aiResponseHistory.get(key) || [];
 
-        // Keep only timestamps from the last 10 minutes
-        const recentResponses = history.filter(ts => (now - ts) < 10 * 60 * 1000);
+        // Keep only timestamps and contents from the last 10 minutes
+        const recentResponses = history.filter(item => (now - item.timestamp) < 10 * 60 * 1000);
         aiResponseHistory.set(key, recentResponses);
 
-        // Threshold: More than 10 responses in 10 minutes is likely a loop
+        // 1. Time-based threshold: More than 10 responses in 10 minutes is likely a loop
         if (recentResponses.length >= 10) {
-            log(`Protection anti-boucle activée pour ${remoteJid} : ${recentResponses.length} réponses en 10 min.`, sessionId, { event: 'ai-loop-block', remoteJid, count: recentResponses.length }, 'WARN');
+            log(`Protection anti-boucle activée pour ${remoteJid} : ${recentResponses.length} réponses en 10 min.`, sessionId, { event: 'ai-loop-block', remoteJid, count: recentResponses.length, reason: 'frequency' }, 'WARN');
             return true;
         }
+
+        // 2. Semantic similarity threshold
+        if (newResponseContent && recentResponses.length > 0) {
+            // Check similarity with the last few messages
+            const lastMessages = recentResponses.slice(-3).map(item => item.content).filter(Boolean);
+            for (const oldMsg of lastMessages) {
+                if (stringSimilarity.compareTwoStrings(oldMsg.toLowerCase(), newResponseContent.toLowerCase()) > 0.85) {
+                    log(`Protection anti-boucle activée pour ${remoteJid} : similarité sémantique détectée`, sessionId, { event: 'ai-loop-block', remoteJid, reason: 'semantic-similarity' }, 'WARN');
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
 
@@ -304,10 +318,10 @@ class AIService {
      * @param {string} sessionId
      * @param {string} remoteJid
      */
-    static recordAIResponse(sessionId, remoteJid) {
+    static recordAIResponse(sessionId, remoteJid, content = '') {
         const key = `${sessionId}:${remoteJid}`;
         const history = aiResponseHistory.get(key) || [];
-        history.push(Date.now());
+        history.push({ timestamp: Date.now(), content });
         aiResponseHistory.set(key, history);
     }
 
@@ -510,7 +524,7 @@ class AIService {
             }
 
             // 3. Loop Protection
-            if (this.isLoopDetected(sessionId, remoteJid)) {
+            if (this.isLoopDetected(sessionId, remoteJid, messageText)) {
                 log(`Message de ${remoteJid} ignoré : Boucle IA potentielle détectée`, sessionId, { event: 'ai-skip', reason: 'loop-protection' }, 'WARN');
 
                 // --- FIX: AI LOOP PREVENTION ---
@@ -766,6 +780,33 @@ class AIService {
     /**
      * Calls the configured AI endpoint
      */
+
+    /**
+     * Filters generated content to prevent sending sensitive or offensive information
+     * @param {string} content - The AI generated content
+     * @returns {boolean} - True if content is safe, False otherwise
+     */
+    static isContentSafe(content) {
+        if (!content) return true;
+
+        // Basic list of forbidden patterns or words (can be extended or fetched from DB)
+        // Here we put a basic generic list of inappropriate words/patterns or safety checks
+        const forbiddenWords = [
+            'mot_interdit_1', 'mot_interdit_2', // Examples
+            // We can add actual sensitive terms if needed, but for now a placeholder list
+            'ignore toutes les instructions',
+            'ignore previous instructions'
+        ];
+
+        const lowerContent = content.toLowerCase();
+        for (const word of forbiddenWords) {
+            if (lowerContent.includes(word)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static async callAI(user, userMessage, systemPrompt = null, history = []) {
         let { id: sessionId, ai_endpoint, ai_key, ai_model, ai_prompt, ai_temperature, ai_max_tokens, ai_constraints } = user;
 
@@ -930,6 +971,11 @@ RÈGLES STRICTES POUR CAL.COM :
             if (ai_constraints) {
                 finalSystemPrompt += "\n\nEXIGENCES STRICTES À RESPECTER :\n" + ai_constraints;
             }
+
+            finalSystemPrompt += `\n\n[ÉVALUATION DE LA CONFIANCE ET HORS SUJET]
+Tu dois évaluer ta confiance dans ta réponse et vérifier si la question est dans ton domaine.
+1. Si la question est complètement hors de ton domaine de compétence (ex: programmation si tu es un bot de vente), tu DOIS répondre EXACTEMENT par : "Je ne suis pas programmé pour répondre à cela. Veuillez contacter un humain pour cette question."
+2. Si tu n'es pas sûr de ta réponse (confiance faible, manque de données), commence ta réponse par "[LOW_CONFIDENCE]" puis donne ta meilleure réponse.`;
 
             if (ragContext) {
                 finalSystemPrompt += "\n\nIMPORTANT : Utilise les informations du CONTEXTE DE CONNAISSANCES ci-dessus pour répondre de manière précise. Si l'information n'est pas dans le contexte, réponds avec tes connaissances générales ou demande plus de précisions.";
@@ -1149,7 +1195,7 @@ RÈGLES STRICTES POUR CAL.COM :
             if (result) {
                 log(`Message envoyé avec succès à ${jid}`, sessionId, { event: 'ai-sent', jid }, 'INFO');
                 Session.updateAIStats(sessionId, 'sent');
-                this.recordAIResponse(sessionId, jid);
+                this.recordAIResponse(sessionId, jid, text);
 
                 const session = Session.findById(sessionId);
 
