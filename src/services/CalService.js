@@ -253,7 +253,9 @@ class CalService {
         if (!token) throw new Error('User not connected to Cal.com');
 
         try {
-            const user = await User.findById(userId);
+            const User = require('../models/User');
+            // User model does not use promises in this repo (uses better-sqlite3 sync methods)
+            const user = User.findById(userId);
             const payload = {
                 eventTypeId,
                 start,
