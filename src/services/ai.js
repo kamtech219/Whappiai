@@ -961,7 +961,7 @@ RÈGLES STRICTES POUR CAL.COM :
      * Generate a group message based on profile and objective
      */
     static async generateGroupMessage(userId, groupId, options) {
-        const { objective, additionalInfo, includeLinks } = options;
+        const { objective, additionalInfo, includeLinks, tone, length, topicsToInclude, topicsToExclude } = options;
         
         try {
             // userId here is actually the sessionId passed from api.js
@@ -983,11 +983,13 @@ RÈGLES STRICTES POUR CAL.COM :
             ${links.length > 0 ? `Liens et produits disponibles :\n${links.map(l => `- ${l.title}: ${l.description} (${l.url}) - CTA: ${l.cta}`).join('\n')}` : ''}
             
             Consignes :
-            - Utilise un ton adapté au groupe.
-            - Sois concis et utilise des emojis pour structurer le message.
+            - Utilise un ton : ${tone || 'adapté au groupe'}.
+            - Longueur souhaitée : ${length || 'concis'}.
             - Inclus les liens de manière naturelle si nécessaire.
             - N'utilise pas de placeholders comme [Lien], remplace-les par les vraies informations fournies.
-            - Si des liens sont fournis ci-dessus, tu DOIS impérativement en inclure au moins un de manière pertinente dans le message.`;
+            - Si des liens sont fournis ci-dessus, tu DOIS impérativement en inclure au moins un de manière pertinente dans le message.
+            ${topicsToInclude ? `- Sujets à inclure obligatoirement : ${topicsToInclude}` : ''}
+            ${topicsToExclude ? `- Sujets à exclure impérativement : ${topicsToExclude}` : ''}`;
 
             const userPrompt = `Rédige un message pour le groupe avec l'objectif suivant : ${objective}.
             ${additionalInfo ? `Informations complémentaires à inclure : ${additionalInfo}` : ''}`;
