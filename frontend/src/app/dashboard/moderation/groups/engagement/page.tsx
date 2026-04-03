@@ -53,6 +53,12 @@ function GroupEngagementContent() {
   const [recurrence, setRecurrence] = React.useState<"none" | "daily" | "weekly">("none")
   const [directMessage, setDirectMessage] = React.useState("")
 
+  // Customization state
+  const [tone, setTone] = React.useState("adapté au groupe")
+  const [length, setLength] = React.useState("concis")
+  const [topicsToInclude, setTopicsToInclude] = React.useState("")
+  const [topicsToExclude, setTopicsToExclude] = React.useState("")
+
   const [profile, setProfile] = React.useState<any>({
     mission: "",
     objectives: "",
@@ -168,7 +174,14 @@ function GroupEngagementContent() {
 
     try {
        const token = await getToken()
-       const response = await api.sessions.generateGroupMessage(sessionId, selectedGroupId, { objective: generationGoal, includeLinks: true }, token || undefined)
+       const response = await api.sessions.generateGroupMessage(sessionId, selectedGroupId, {
+         objective: generationGoal,
+         includeLinks: true,
+         tone,
+         length,
+         topicsToInclude,
+         topicsToExclude
+       }, token || undefined)
 
        toast.success("Message g&eacute;n&eacute;r&eacute; avec succ&egrave;s", { id: toastId })
 
@@ -302,7 +315,7 @@ function GroupEngagementContent() {
                          <CardContent className="p-6">
                             <div className="flex items-start gap-4">
                                <Sparkles className="h-5 w-5 text-primary" />
-                               <div className="space-y-3 flex-1">
+                               <div className="space-y-4 flex-1">
                                   <h4 className="text-sm font-bold">G&eacute;n&eacute;rateur de Campagne IA</h4>
                                   <Textarea
                                     placeholder="Objectif de la campagne..."
@@ -310,7 +323,64 @@ function GroupEngagementContent() {
                                     value={generationGoal}
                                     onChange={(e) => setGenerationGoal(e.target.value)}
                                   />
-                                  <Button size="sm" className="w-full" onClick={handleGenerate} disabled={isGenerating}>G&eacute;n&eacute;rer</Button>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                     <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Ton</Label>
+                                        <Select value={tone} onValueChange={setTone}>
+                                           <SelectTrigger className="h-8 text-xs bg-background">
+                                              <SelectValue placeholder="Ton" />
+                                           </SelectTrigger>
+                                           <SelectContent>
+                                              <SelectItem value="adapté au groupe" className="text-xs">Adapt&eacute; au groupe</SelectItem>
+                                              <SelectItem value="professionnel" className="text-xs">Professionnel</SelectItem>
+                                              <SelectItem value="décontracté" className="text-xs">D&eacute;contract&eacute;</SelectItem>
+                                              <SelectItem value="enthousiaste" className="text-xs">Enthousiaste</SelectItem>
+                                              <SelectItem value="humoristique" className="text-xs">Humoristique</SelectItem>
+                                              <SelectItem value="empathique" className="text-xs">Empathique</SelectItem>
+                                           </SelectContent>
+                                        </Select>
+                                     </div>
+                                     <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Longueur</Label>
+                                        <Select value={length} onValueChange={setLength}>
+                                           <SelectTrigger className="h-8 text-xs bg-background">
+                                              <SelectValue placeholder="Longueur" />
+                                           </SelectTrigger>
+                                           <SelectContent>
+                                              <SelectItem value="concis" className="text-xs">Concis</SelectItem>
+                                              <SelectItem value="moyen" className="text-xs">Moyen</SelectItem>
+                                              <SelectItem value="détaillé" className="text-xs">D&eacute;taill&eacute;</SelectItem>
+                                           </SelectContent>
+                                        </Select>
+                                     </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                     <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Sujets &agrave; inclure</Label>
+                                        <Input
+                                          placeholder="Ex: promotion, événement à venir..."
+                                          className="h-8 text-xs bg-background"
+                                          value={topicsToInclude}
+                                          onChange={(e) => setTopicsToInclude(e.target.value)}
+                                        />
+                                     </div>
+                                     <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Sujets &agrave; exclure</Label>
+                                        <Input
+                                          placeholder="Ex: prix, concurrents..."
+                                          className="h-8 text-xs bg-background"
+                                          value={topicsToExclude}
+                                          onChange={(e) => setTopicsToExclude(e.target.value)}
+                                        />
+                                     </div>
+                                  </div>
+
+                                  <Button size="sm" className="w-full" onClick={handleGenerate} disabled={isGenerating}>
+                                    {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                                    G&eacute;n&eacute;rer
+                                  </Button>
                                </div>
                             </div>
                          </CardContent>
