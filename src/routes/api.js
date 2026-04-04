@@ -14,6 +14,7 @@ const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
 const xss = require('xss');
 const NodeClam = require('clamscan');
 const User = require('../models/User');
+const { log } = require('../utils/logger');
 
 // Initialize ClamAV Scanner
 let clamscan = null;
