@@ -176,8 +176,9 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
         markOnlineOnConnect: true,
         linkPreviewImageThumbnailWidth: 192,
         getMessage: async (key) => {
-            // This helps with message retries
-            return { conversation: 'hello' };
+            // We do not store messages, so we cannot provide the real message for retries.
+            // Returning a fake message causes infinite retry loops and crashes.
+            return undefined;
         },
         // Performance & Stability Tweaks
         patchMessageBeforeSending: (message) => {
