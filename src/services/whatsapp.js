@@ -30,8 +30,6 @@ const User = require('../models/User');
 const defaultLogLevel = process.env.NODE_ENV === 'production' ? 'silent' : 'warn';
 const logger = pino({ level: process.env.LOG_LEVEL || defaultLogLevel });
 
-const NotificationService = require('./NotificationService');
-
 // Active socket connections (in-memory)
 const activeSockets = new Map();
 const sessionLastActivity = new Map();
@@ -449,23 +447,23 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
                                     userId: user.id,
                                     type: 'SESSION_BLOCKED',
                                     title: 'WhatsApp Déconnecté ou Bloqué',
-                                    message: \`Votre session \${sessionId} a été déconnectée (Code: \${statusCode}). Si c'est inattendu, votre numéro WhatsApp pourrait être bloqué par Meta. Veuillez vérifier votre application WhatsApp sur votre téléphone.\`,
+                                    message: `Votre session ${sessionId} a été déconnectée (Code: ${statusCode}). Si c'est inattendu, votre numéro WhatsApp pourrait être bloqué par Meta. Veuillez vérifier votre application WhatsApp sur votre téléphone.`,
                                     metadata: { sessionId, statusCode }
                                 });
                             }
                         }
                     } catch (notifyErr) {
-                        log(\`Erreur de notification de blocage: \${notifyErr.message}\`, sessionId, { error: notifyErr.message }, 'WARN');
+                        log(`Erreur de notification de blocage: ${notifyErr.message}`, sessionId, { error: notifyErr.message }, 'WARN');
                     }
 
                     try {
                         WebhookService.dispatch(sessionId, 'session_blocked', {
                             timestamp: Math.floor(Date.now() / 1000),
-                            reason: \`Disconnected with status \${statusCode}\`,
+                            reason: `Disconnected with status ${statusCode}`,
                             statusCode
                         });
                     } catch (webhookErr) {
-                        log(\`Erreur webhook blocage: \${webhookErr.message}\`, sessionId, { error: webhookErr.message }, 'WARN');
+                        log(`Erreur webhook blocage: ${webhookErr.message}`, sessionId, { error: webhookErr.message }, 'WARN');
                     }
                 }
             }
