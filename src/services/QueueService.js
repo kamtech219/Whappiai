@@ -63,6 +63,11 @@ class QueueService {
         activeQueues.set(queueKey, true);
 
         try {
+            // Fetch session config for customized anti-ban delays once per queue processing
+            const session = db.prepare('SELECT ai_delay_min, ai_delay_max FROM whatsapp_sessions WHERE id = ?').get(sessionId);
+            const min = (session?.ai_delay_min ?? 1) * 1000;
+            const max = (session?.ai_delay_max ?? 5) * 1000;
+
             while (true) {
                 const queue = activeQueues.get(sessionId);
                 if (!queue || queue.length === 0) break;
@@ -88,10 +93,6 @@ class QueueService {
 
                 try {
                     // 1. Human-like delay BEFORE sending
-                    // Fetch session config for customized anti-ban delays
-                    const session = db.prepare('SELECT ai_delay_min, ai_delay_max FROM whatsapp_sessions WHERE id = ?').get(sessionId);
-                    const min = (session?.ai_delay_min ?? 1) * 1000;
-                    const max = (session?.ai_delay_max ?? 5) * 1000;
 
                     // Base delay from config (default 1-5s) + bonus for long queues
                     const baseDelay = min + Math.random() * (max - min);
