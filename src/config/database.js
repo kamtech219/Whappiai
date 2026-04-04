@@ -598,6 +598,24 @@ function initializeSchema() {
         });
     });
 
+    // Add user language preference
+    runner.run('users-language-preference-v1', (db) => {
+        const info = db.prepare("PRAGMA table_info(users)").all();
+        const columns = [
+            { name: 'language', type: 'TEXT DEFAULT "fr"' }
+        ];
+        columns.forEach(col => {
+            if (!info.some(c => c.name === col.name)) {
+                try {
+                    db.exec(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`);
+                    log(`Migration : Colonne ${col.name} ajoutée avec succès`, "SYSTEM");
+                } catch (e) {
+                    log(`Migration : Échec ajout ${col.name}`, "SYSTEM", { error: e.message }, "ERROR");
+                }
+            }
+        });
+    });
+
     // Add AI whitelist table
     runner.run('ai-whitelist-table-v1', (db) => {
         const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_whitelisted_numbers'").get();

@@ -1,0 +1,26 @@
+{
+  "ai": {
+    "booking_confirmed": "✅ Appointment confirmed for {{date}}!",
+    "booking_confirmed_with_name": "✅ Appointment confirmed for {{date}} with {{name}}.",
+    "video_link": "Video link: {{url}}",
+    "available_slots": "Here are the available slots for {{date}}:",
+    "available_slots_more": "(and {{count}} more slots)",
+    "no_availability": "Sorry, I have no availability left for {{date}}.",
+    "yes_slots_available": "Yes, I have slots on {{date}}. Do you prefer morning or afternoon?",
+    "default_response": "I couldn't understand your request, please try again.",
+    "human_handoff": "I am connecting you with a human agent as soon as possible.",
+    "out_of_domain": "I am not programmed to answer that. Please contact a human for this question.",
+    "out_of_domain_instruction": "If the question is completely outside your area of expertise, you MUST answer EXACTLY with: \"I am not programmed to answer that. Please contact a human for this question.\"",
+    "low_confidence_instruction": "If you are not sure of your answer (low confidence, lack of data), start your answer with \"[LOW_CONFIDENCE]\" then give your best answer.",
+    "time_context": "The current local time is {{time}} on {{date}} (Timezone: {{timezone}}). Use this information if the user asks for the time or for date/appointment calculations.",
+    "language_instruction": "You must imperatively respond in the language: English. Adapt your vocabulary and style to this language.",
+    "strict_requirements": "STRICT REQUIREMENTS TO FOLLOW:\n",
+    "confidence_eval": "[CONFIDENCE AND OUT OF TOPIC EVALUATION]\nYou must evaluate your confidence in your answer and check if the question is in your domain.",
+    "rag_instruction": "IMPORTANT: Use the KNOWLEDGE CONTEXT information above to answer accurately. If the information is not in the context, answer with your general knowledge or ask for more details.",
+    "booking_error": "Sorry, an error occurred during booking. The slot might already be taken.",
+    "booking_config_error": "Sorry, I couldn't make the booking. There might be a configuration issue with the calendar.",
+    "group_assistant": "You are the official AI assistant for this WhatsApp group. Your goal is to help members, answer their questions, and facilitate the conversation in a professional and friendly manner.\n\nGroup information:\n- Mission: {{mission}}\n- Objectives: {{objectives}}\n- Rules: {{rules}}\n- Theme: {{theme}}\n\nInstructions:\n- Be concise.\n- Use emojis.\n- Respect group rules.\n- If you don't know the answer, redirect to an administrator.",
+    "group_gen_system": "You are an expert in WhatsApp group engagement and animation. Your goal is to write an engaging, relevant, and impactful message.\n\nGroup information:\n- Mission: {{mission}}\n- Objectives: {{objectives}}\n- Rules: {{rules}}\n- Theme: {{theme}}\n\n{{links}}\n\nInstructions:\n- Use a tone: {{tone}}.\n- Desired length: {{length}}.\n- Include links naturally if necessary.\n- Do not use placeholders like [Link], replace them with the real provided information.\n- If links are provided above, you MUST include at least one relevantly in the message.\n{{topicsInclude}}\n{{topicsExclude}}",
+    "group_gen_user": "Write a message for the group with the following objective: {{objective}}.\n{{additional}}"
+  }
+}

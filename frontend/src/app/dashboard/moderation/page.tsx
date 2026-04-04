@@ -20,10 +20,12 @@ import { useAuth } from "@clerk/clerk-react"
 import { useWebSocket } from "@/providers/websocket-provider"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender } from "@/lib/utils"
+import { useI18n } from "@/i18n/i18n-provider"
 
 export default function ModerationPage() {
   const router = useRouter()
   const { getToken } = useAuth()
+  const { t } = useI18n()
   const { lastMessage } = useWebSocket()
   const [sessions, setSessions] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -89,15 +91,15 @@ export default function ModerationPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" /> Gestion des Groupes
+            <Shield className="h-5 w-5 text-primary" /> {t("dashboard.moderation.title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Sélectionnez une session pour administrer ses groupes.</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.moderation.desc")}</p>
         </div>
 
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Rechercher une session..."
+            placeholder={t("dashboard.moderation.search_placeholder")}
             className="pl-8 h-9 text-xs bg-muted/20 border-none"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
@@ -107,7 +109,7 @@ export default function ModerationPage() {
 
       <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/10 rounded-lg">
         <Info className="h-4 w-4 text-primary shrink-0" />
-        <p className="text-xs text-muted-foreground">La mod&eacute;ration ne s&apos;applique qu&apos;aux groupes o&ugrave; le compte WhatsApp est Administrateur.</p>
+        <p className="text-xs text-muted-foreground">{t("dashboard.moderation.info")}</p>
       </div>
 
       {loading ? (
@@ -117,10 +119,10 @@ export default function ModerationPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed rounded-xl border-muted/20 bg-muted/5">
            <ShieldAlert className="h-10 w-10 text-muted-foreground/30 mb-3" />
-           <p className="text-sm font-medium">Aucune session active</p>
-           <p className="text-xs text-muted-foreground max-w-xs">Connectez un compte WhatsApp pour commencer la mod&eacute;ration.</p>
+           <p className="text-sm font-medium">{t("dashboard.moderation.no_session")}</p>
+           <p className="text-xs text-muted-foreground max-w-xs">{t("dashboard.moderation.no_session_desc")}</p>
            <Button variant="outline" size="sm" className="mt-4 rounded-full" onClick={() => router.push('/dashboard')}>
-              Tableau de bord
+              {t("dashboard.moderation.go_to_dashboard")}
            </Button>
         </div>
       ) : (
@@ -138,12 +140,12 @@ export default function ModerationPage() {
                       ? "bg-green-500/10 text-green-700 dark:text-green-400"
                       : "bg-muted text-muted-foreground"
                   )}>
-                    {session.isConnected ? "Connect&eacute;" : "Hors-ligne"}
+                    {session.isConnected ? t("dashboard.moderation.status_online") : t("dashboard.moderation.status_offline")}
                   </Badge>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-bold truncate">{safeRender(session.sessionId)}</p>
-                  <p className="text-xs text-muted-foreground">Session WhatsApp active</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.moderation.whatsapp_active")}</p>
                 </div>
               </CardContent>
               <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-2">
@@ -153,7 +155,7 @@ export default function ModerationPage() {
                   className="h-8 text-[10px] font-semibold tracking-wider"
                   onClick={() => router.push(`/dashboard/moderation/groups/moderation?sessionId=${safeRender(session.sessionId)}`)}
                 >
-                  <ShieldCheck className="h-3 w-3 mr-1.5" /> S&eacute;curit&eacute;
+                  <ShieldCheck className="h-3 w-3 mr-1.5" /> {t("dashboard.moderation.security")}
                 </Button>
                 <Button
                   variant="secondary"

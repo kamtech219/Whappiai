@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
+import { api } from "@/lib/api"
 import en from "./locales/en.json"
 import fr from "./locales/fr.json"
 
@@ -19,21 +21,57 @@ const I18nContext = React.createContext<I18nContextType | undefined>(undefined)
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocale] = React.useState<Language>('fr')
+  const { getToken, isLoaded } = useAuth()
 
-  // Load locale from localStorage on mount
+  // Load locale from localStorage or DB on mount
   React.useEffect(() => {
-    const saved = localStorage.getItem('whappi_locale') as Language
-    if (saved && (saved === 'en' || saved === 'fr')) {
-      setLocale(saved)
-    } else {
-      const browserLang = navigator.language.split('-')[0]
-      if (browserLang === 'en') setLocale('en')
-    }
-  }, [])
+    const loadLocale = async () => {
+      let saved = localStorage.getItem('whappi_locale') as Language
 
-  const handleSetLocale = (l: Language) => {
+      if (isLoaded) {
+        try {
+          const token = await getToken()
+          if (token) {
+            const profileReq = await api.users.getProfile(token)
+            const profile = await profileReq.json()
+            if (profile?.data?.language && (profile.data.language === 'en' || profile.data.language === 'fr')) {
+              saved = profile.data.language as Language
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch user language preference", error)
+        }
+      }
+
+      if (saved && (saved === 'en' || saved === 'fr')) {
+        setLocale(saved)
+        localStorage.setItem('whappi_locale', saved)
+      } else {
+        const browserLang = navigator.language.split('-')[0]
+        if (browserLang === 'en') {
+          setLocale('en')
+          localStorage.setItem('whappi_locale', 'en')
+        }
+      }
+    }
+
+    loadLocale()
+  }, [isLoaded, getToken])
+
+  const handleSetLocale = async (l: Language) => {
     setLocale(l)
     localStorage.setItem('whappi_locale', l)
+
+    if (isLoaded) {
+      try {
+        const token = await getToken()
+        if (token) {
+          await api.users.updateProfile({ language: l }, token)
+        }
+      } catch (error) {
+        console.error("Failed to update language preference in backend", error)
+      }
+    }
   }
 
   const t = (keyPath: string): string => {
