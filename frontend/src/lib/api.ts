@@ -240,12 +240,12 @@ export const api = {
       body: JSON.stringify(data),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
-    updateEngagementTask: (taskId: number, data: any, token?: string) => fetchApi(`/api/v1/moderation/engagement/${taskId}`, {
+    updateEngagementTask: (sessionId: string, taskId: number, data: any, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/moderation/engagement/${taskId}`, {
       method: "PUT",
       body: JSON.stringify(data),
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
-    deleteEngagementTask: (taskId: number, token?: string) => fetchApi(`/api/v1/moderation/engagement/${taskId}`, {
+    deleteEngagementTask: (sessionId: string, taskId: number, token?: string) => fetchApi(`/api/v1/sessions/${sessionId}/moderation/engagement/${taskId}`, {
       method: "DELETE",
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
     }),
