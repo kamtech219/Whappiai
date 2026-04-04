@@ -193,8 +193,8 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.clerk.com", "https://*.clerk.accounts.dev", "https://umami.kamtech.online"],
-            connectSrc: ["'self'", "https://api.clerk.com", "wss://*", "https://*"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.clerk.com", "https://*.clerk.dev", "https://*.clerk.accounts.dev", "https://umami.kamtech.online"],
+            connectSrc: ["'self'", "https://*.clerk.com", "https://*.clerk.dev", "https://api.clerk.com", "https://umami.kamtech.online", "https://api.umami.is", "https://eu.umami.is", "https://gateway.umami.is", "https://api-gateway-eu.umami.dev", "wss://*", "https://*"],
             imgSrc: ["'self'", "data:", "https://*"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"]
