@@ -39,6 +39,7 @@
     "express-session": "^1.18.2",
     "file-type": "^16.5.4",
     "helmet": "^8.0.0",
+    "i18next": "^26.0.3",
     "multer": "^2.0.0",
     "pino": "^9.5.0",
     "prom-client": "^15.1.3",

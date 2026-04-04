@@ -195,7 +195,7 @@ export default function AiModelsPage() {
           <CardContent className="p-4 flex items-center gap-3">
              <div className="h-9 w-9 rounded-full bg-green-500/10 flex items-center justify-center text-green-600"><CheckCircle2 className="h-4 w-4" /></div>
              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground">Messages IA Envoyés</p>
+                <p className="text-[10px] font-semibold text-muted-foreground">{t("dashboard.ai_models.ai_messages_sent")}</p>
                 <p className="text-sm font-bold">{adminStats?.overview?.messagesSent || 0}</p>
              </div>
           </CardContent>
@@ -204,7 +204,7 @@ export default function AiModelsPage() {
           <CardContent className="p-4 flex items-center gap-3">
              <div className="h-9 w-9 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600"><TrendingUp className="h-4 w-4" /></div>
              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground">Taux de Succès Global</p>
+                <p className="text-[10px] font-semibold text-muted-foreground">{t("dashboard.ai_models.global_success_rate")}</p>
                 <p className="text-sm font-bold">{adminStats?.overview?.successRate || 0}%</p>
              </div>
           </CardContent>
@@ -216,12 +216,12 @@ export default function AiModelsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-muted/30">
-                <TableHead className="text-[10px] font-semibold text-muted-foreground">Modèle</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden sm:table-cell">Provider / API</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden lg:table-cell">Code Technique</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground text-center hidden md:table-cell">Usage (Sent/Recv)</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground text-center">Par Défaut</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground text-right">Actions</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground">{t("dashboard.ai_models.table_name")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden sm:table-cell">{t("dashboard.ai_models.provider_api")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden lg:table-cell">{t("dashboard.ai_models.tech_code")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground text-center hidden md:table-cell">{t("dashboard.ai_models.usage")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground text-center">{t("dashboard.ai_models.default")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground text-right">{t("dashboard.ai_models.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,7 +234,7 @@ export default function AiModelsPage() {
               ) : models.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground text-xs italic">
-                    Aucun moteur configuré.
+                    {t("dashboard.ai_models.no_engine")}
                   </TableCell>
                 </TableRow>
               ) : (

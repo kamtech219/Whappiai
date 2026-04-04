@@ -63,10 +63,12 @@ import { useAuth, useUser } from "@clerk/clerk-react"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender, safeDate } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useI18n } from "@/i18n/i18n-provider"
 
 export default function UsersPage() {
   const { getToken } = useAuth()
   const { user: currentUser } = useUser()
+  const { t } = useI18n()
   const [users, setUsers] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState("")
@@ -208,8 +210,8 @@ export default function UsersPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
         <Shield className="h-12 w-12 text-muted-foreground/20 mb-4" />
-        <h2 className="text-lg font-bold">Accès Restreint</h2>
-        <p className="text-sm text-muted-foreground max-w-xs mx-auto">Seuls les administrateurs peuvent gérer les utilisateurs.</p>
+        <h2 className="text-lg font-bold">{t("dashboard.users.restricted")}</h2>
+        <p className="text-sm text-muted-foreground max-w-xs mx-auto">{t("dashboard.users.restricted_desc")}</p>
       </div>
     )
   }
@@ -219,13 +221,13 @@ export default function UsersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" /> Gestion Utilisateurs
+            <Users className="h-5 w-5 text-primary" /> {t("dashboard.users.title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Administrez les accès et les portefeuilles crédits.</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.users.desc")}</p>
         </div>
 
         <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="rounded-full h-8 px-4">
-          <Plus className="h-3 w-3 mr-2" /> Nouvel Utilisateur
+          <Plus className="h-3 w-3 mr-2" /> {t("dashboard.users.new_user")}
         </Button>
       </div>
 
@@ -233,14 +235,14 @@ export default function UsersPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par email ou ID..."
+            placeholder={t("dashboard.users.search_placeholder")}
             className="pl-8 h-9 text-xs bg-muted/20 border-none"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
         <Badge variant="outline" className="h-9 px-3 rounded-md text-[10px] font-semibold tracking-wider text-muted-foreground border-dashed">
-          {filtered.length} Utilisateurs
+          {filtered.length} {t("dashboard.users.users_count")}
         </Badge>
       </div>
 
@@ -249,10 +251,10 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-muted/30">
-                <TableHead className="text-[10px] font-semibold text-muted-foreground">Utilisateur</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden sm:table-cell">Rôle</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground">Crédits</TableHead>
-                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden md:table-cell">Statut</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground">{t("dashboard.users.user")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden sm:table-cell">{t("dashboard.users.role")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground">{t("dashboard.users.credits")}</TableHead>
+                <TableHead className="text-[10px] font-semibold text-muted-foreground hidden md:table-cell">{t("dashboard.users.status")}</TableHead>
                 <TableHead className="text-right"></TableHead>
               </TableRow>
             </TableHeader>
@@ -266,7 +268,7 @@ export default function UsersPage() {
             ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center text-muted-foreground text-xs italic">
-                  Aucun utilisateur trouvé.
+                  {t("dashboard.users.no_user_found")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -312,7 +314,7 @@ export default function UsersPage() {
                       ) : (
                         <XCircle className="h-3 w-3 text-muted-foreground/30" />
                       )}
-                      <span className="text-[11px] font-medium">{u.is_active ? 'Actif' : 'Désactivé'}</span>
+                      <span className="text-[11px] font-medium">{u.is_active ? t("dashboard.users.active") : t("dashboard.users.disabled")}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right" onClick={e => e.stopPropagation()}>
@@ -322,17 +324,17 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem className="text-xs" onClick={() => setSelectedUserId(u.id)}>
-                          <TrendingUp className="h-3.5 w-3.5 mr-2" /> Détails & Crédits
+                          <TrendingUp className="h-3.5 w-3.5 mr-2" /> {t("dashboard.users.details_credits")}
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-xs" onClick={() => handleUpdateRole(u.email, u.role === 'admin' ? 'user' : 'admin')}>
-                          <Edit className="h-3.5 w-3.5 mr-2" /> Passer en {u.role === 'admin' ? 'Utilisateur' : 'Admin'}
+                          <Edit className="h-3.5 w-3.5 mr-2" /> {u.role === 'admin' ? t("dashboard.users.make_user") : t("dashboard.users.make_admin")}
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-xs" onClick={() => handleToggleStatus(u)}>
-                          <Shield className="h-3.5 w-3.5 mr-2" /> {u.is_active ? 'Désactiver' : 'Réactiver'}
+                          <Shield className="h-3.5 w-3.5 mr-2" /> {u.is_active ? t("dashboard.users.disable") : t("dashboard.users.enable")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-xs text-destructive" onClick={() => handleDeleteUser(u.id)}>
-                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Supprimer
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> {t("dashboard.users.delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

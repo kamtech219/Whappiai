@@ -9,17 +9,19 @@ import { useUser, useClerk } from "@clerk/nextjs"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ensureString } from "@/lib/utils"
+import { useI18n } from "@/i18n/i18n-provider"
 
 export default function ProfileLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser()
   const { signOut } = useClerk()
   const pathname = usePathname()
+  const { t } = useI18n()
 
   if (!isLoaded) return null
 
   const userEmail = user?.primaryEmailAddress?.emailAddress
   const isAdmin = userEmail === "maruise237@gmail.com" || user?.publicMetadata?.role === "admin"
-  const userRole = isAdmin ? "Administrateur" : ((user?.publicMetadata?.role as string) || "Utilisateur")
+  const userRole = isAdmin ? t("dashboard.profile.admin") : ((user?.publicMetadata?.role as string) || t("dashboard.profile.user"))
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
@@ -45,17 +47,17 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
       <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
          <nav className="flex flex-row md:flex-col gap-1 sticky top-14 md:top-24 bg-background/95 backdrop-blur z-10 py-2 md:py-0 overflow-x-auto no-scrollbar border-b md:border-none h-fit">
             <Button variant="ghost" asChild className={`flex-none justify-start text-xs font-semibold tracking-wider h-10 px-4 whitespace-nowrap ${pathname === '/dashboard/profile' ? 'bg-muted/50 border-b-2 md:border-b-0 md:border-r-2 border-primary rounded-none' : 'text-muted-foreground hover:bg-muted/30'}`}>
-                <Link href="/dashboard/profile">Mon Profil</Link>
+                <Link href="/dashboard/profile">{t("dashboard.profile.my_profile")}</Link>
             </Button>
             <Button variant="ghost" asChild className={`flex-none justify-start text-xs font-semibold tracking-wider h-10 px-4 whitespace-nowrap ${pathname === '/dashboard/profile/security' ? 'bg-muted/50 border-b-2 md:border-b-0 md:border-r-2 border-primary rounded-none' : 'text-muted-foreground hover:bg-muted/30'}`}>
-                <Link href="/dashboard/profile/security">Sécurité</Link>
+                <Link href="/dashboard/profile/security">{t("dashboard.profile.security")}</Link>
             </Button>
             <Button variant="ghost" asChild className={`flex-none justify-start text-xs font-semibold tracking-wider h-10 px-4 whitespace-nowrap ${pathname === '/dashboard/profile/notifications' ? 'bg-muted/50 border-b-2 md:border-b-0 md:border-r-2 border-primary rounded-none' : 'text-muted-foreground hover:bg-muted/30'}`}>
-                <Link href="/dashboard/profile/notifications">Notifications</Link>
+                <Link href="/dashboard/profile/notifications">{t("dashboard.profile.notifications")}</Link>
             </Button>
             <Separator className="hidden md:block my-2" />
             <Button variant="ghost" onClick={() => signOut()} className="flex-none justify-start text-xs font-semibold tracking-wider h-10 text-destructive hover:bg-destructive/5 hover:text-destructive px-4 whitespace-nowrap">
-               <LogOut className="h-3.5 w-3.5 mr-2" /> Déconnexion
+               <LogOut className="h-3.5 w-3.5 mr-2" /> {t("nav.logout")}
             </Button>
          </nav>
 

@@ -12,6 +12,7 @@ const QueueService = require('./QueueService');
 const { log } = require('../utils/logger');
 const { db } = require('../config/database');
 const stringSimilarity = require('string-similarity');
+const i18n = require('../utils/i18n');
 
 // Memory-only flags to temporarily pause AI for specific conversations
 const pausedConversations = new Map();
@@ -626,19 +627,14 @@ class AIService {
             if (isGroupMode) {
                 const groupService = require('./groups');
                 const profile = groupService.getProfile(sessionId, remoteJid);
-                systemPrompt = `Tu es l'assistant IA officiel de ce groupe WhatsApp. Ton but est d'aider les membres, de répondre à leurs questions et d'animer la conversation de manière professionnelle et amicale.
-                
-                Informations sur le groupe :
-                - Mission : ${profile?.mission || 'Non spécifiée'}
-                - Objectifs : ${profile?.objectives || 'Non spécifiés'}
-                - Règles : ${profile?.rules || 'Non spécifiées'}
-                - Thématique : ${profile?.theme || 'Générale'}
-                
-                Consignes :
-                - Sois concis.
-                - Utilise des emojis.
-                - Respecte les règles du groupe.
-                - Si tu ne connais pas la réponse, redirige vers un administrateur.`;
+                const lng = session.language === 'en' ? 'en' : 'fr';
+                systemPrompt = i18n.t('ai.group_assistant', {
+                    lng,
+                    mission: profile?.mission || (lng === 'en' ? 'Not specified' : 'Non spécifiée'),
+                    objectives: profile?.objectives || (lng === 'en' ? 'Not specified' : 'Non spécifiés'),
+                    rules: profile?.rules || (lng === 'en' ? 'Not specified' : 'Non spécifiées'),
+                    theme: profile?.theme || (lng === 'en' ? 'General' : 'Générale')
+                });
             }
             
             const response = await this.callAI(session, messageText, systemPrompt, history);
@@ -681,16 +677,25 @@ class AIService {
                             const endTime = `${date}T23:59:59Z`;
                             const slots = await CalService.getAvailability(calOwner.id, eventTypeId, startTime, endTime);
 
-                            let slotsText = (slots && slots.length > 0)
-                                ? `Voici les disponibilités pour le ${date} :\n` + slots.slice(0, 5).map(s => `- ${new Date(s.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`).join('\n')
-                                : `Désolé, aucune disponibilité pour le ${date}.`;
+                            const calLocale = (calOwner && calOwner.language === 'en') ? 'en-US' : 'fr-FR';
+                            const lng = calOwner?.language || 'fr';
+
+                            let slotsText = '';
+                            if (slots && slots.length > 0) {
+                                const headerText = `${i18n.t('ai.available_slots', { lng, date })}\n`;
+                                slotsText = headerText + slots.slice(0, 5).map(s => `- ${new Date(s.time).toLocaleTimeString(calLocale, {hour: '2-digit', minute:'2-digit'})}`).join('\n');
+                            } else {
+                                slotsText = i18n.t('ai.no_availability', { lng, date });
+                            }
 
                             finalResponse = finalResponse.replace(checkRegex, slotsText);
                         } else {
-                            finalResponse = finalResponse.replace(checkRegex, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
+                            const lng = calOwner?.language || 'fr';
+                            finalResponse = finalResponse.replace(checkRegex, i18n.t('ai.booking_config_error', { lng }));
                         }
                     } catch (err) {
-                        finalResponse = finalResponse.replace(checkRegex, "Désolé, je n'ai pas pu vérifier les disponibilités. Il y a peut-être un problème de configuration de l'agenda.");
+                        const lng = calOwner?.language || 'fr';
+                        finalResponse = finalResponse.replace(checkRegex, i18n.t('ai.booking_config_error', { lng }));
                     }
                 }
 
@@ -722,20 +727,27 @@ class AIService {
 
                                 const booking = await CalService.createBooking(calOwner.id, bookingDetails);
 
-                                let confirmationText = `✅ Rendez-vous confirmé pour le ${new Date(startTime).toLocaleString()} !`;
+                                const calLocale = (calOwner && calOwner.language === 'en') ? 'en-US' : 'fr-FR';
+                                const lng = calOwner?.language || 'fr';
+                                const formattedDate = new Date(startTime).toLocaleString(calLocale);
+
+                                let confirmationText = i18n.t('ai.booking_confirmed_with_name', { lng, date: formattedDate, name });
                                 if (booking && booking.videoCallUrl) {
-                                    confirmationText += `\nLien vidéo : ${booking.videoCallUrl}`;
+                                    confirmationText += `\n${i18n.t('ai.video_link', { lng, url: booking.videoCallUrl })}`;
                                 }
 
                                 finalResponse = finalResponse.replace(bookRegex, confirmationText);
                             } catch (err) {
-                                finalResponse = finalResponse.replace(bookRegex, "Désolé, une erreur est survenue lors de la réservation. Le créneau est peut-être déjà pris.");
+                                const lng = calOwner?.language || 'fr';
+                                finalResponse = finalResponse.replace(bookRegex, i18n.t('ai.booking_error', { lng }));
                             }
                         } else {
-                            finalResponse = finalResponse.replace(bookRegex, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
+                            const lng = calOwner?.language || 'fr';
+                            finalResponse = finalResponse.replace(bookRegex, i18n.t('ai.booking_config_error', { lng }));
                         }
                     } catch (err) {
-                        finalResponse = finalResponse.replace(bookRegex, "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.");
+                        const lng = calOwner?.language || 'fr';
+                        finalResponse = finalResponse.replace(bookRegex, i18n.t('ai.booking_config_error', { lng }));
                     }
                 }
             }
@@ -893,6 +905,7 @@ class AIService {
             // Inject timezone context
             let userTimezone = 'UTC';
             let calOwner = null;
+            let userLanguage = 'fr'; // Default
             if (user.owner_email) {
                 const owner = User.findByEmail(user.owner_email);
                 if (owner) {
@@ -900,11 +913,17 @@ class AIService {
                     if (owner.timezone) {
                         userTimezone = owner.timezone;
                     }
+                    if (owner.language) {
+                        userLanguage = owner.language;
+                    }
                 }
             } else {
                 calOwner = user; // fallback: the user is the owner
                 if (user.timezone) {
                     userTimezone = user.timezone;
+                }
+                if (user.language) {
+                    userLanguage = user.language;
                 }
             }
 
@@ -959,13 +978,17 @@ RÈGLES STRICTES POUR CAL.COM :
             try {
                 // Get localized time based on user's timezone using native JS
                 const now = new Date();
-                const timeString = now.toLocaleTimeString('fr-FR', { timeZone: userTimezone, hour: '2-digit', minute: '2-digit' });
-                const dateString = now.toLocaleDateString('fr-FR', { timeZone: userTimezone });
+                const locale = userLanguage === 'en' ? 'en-US' : 'fr-FR';
+                const timeString = now.toLocaleTimeString(locale, { timeZone: userTimezone, hour: '2-digit', minute: '2-digit' });
+                const dateString = now.toLocaleDateString(locale, { timeZone: userTimezone });
 
                 finalSystemPrompt += `\n\n[CONTEXTE TEMPOREL]\nL'heure locale actuelle est ${timeString} le ${dateString} (Fuseau horaire: ${userTimezone}). Utilise cette information si l'utilisateur demande l'heure ou pour des calculs de dates/rendez-vous.`;
             } catch (err) {
                 log(`Failed to inject timezone context: ${err.message}`, user.id, { timezone: userTimezone }, 'WARN');
             }
+
+            // Inject language preference
+            finalSystemPrompt += `\n\n[LANGUE DE RÉPONSE]\nTu dois impérativement répondre dans la langue : ${userLanguage === 'en' ? 'Anglais' : 'Français'}. Adapte ton vocabulaire et ton style à cette langue.`;
 
             // Inject strict constraints (user requirements)
             if (ai_constraints) {
@@ -1060,27 +1083,38 @@ Tu dois évaluer ta confiance dans ta réponse et vérifier si la question est d
             const profile = groupService.getProfile(userId, groupId);
             const links = includeLinks ? groupService.getProductLinks(userId, groupId) : [];
 
-            const systemPrompt = `Tu es un expert en engagement et animation de groupes WhatsApp. Ton but est de rédiger un message engageant, pertinent et percutant.
+            const lng = session.language === 'en' ? 'en' : 'fr';
             
-            Informations sur le groupe :
-            - Mission : ${profile?.mission || 'Non spécifiée'}
-            - Objectifs : ${profile?.objectives || 'Non spécifiés'}
-            - Règles : ${profile?.rules || 'Non spécifiées'}
-            - Thématique : ${profile?.theme || 'Générale'}
-            
-            ${links.length > 0 ? `Liens et produits disponibles :\n${links.map(l => `- ${l.title}: ${l.description} (${l.url}) - CTA: ${l.cta}`).join('\n')}` : ''}
-            
-            Consignes :
-            - Utilise un ton : ${tone || 'adapté au groupe'}.
-            - Longueur souhaitée : ${length || 'concis'}.
-            - Inclus les liens de manière naturelle si nécessaire.
-            - N'utilise pas de placeholders comme [Lien], remplace-les par les vraies informations fournies.
-            - Si des liens sont fournis ci-dessus, tu DOIS impérativement en inclure au moins un de manière pertinente dans le message.
-            ${topicsToInclude ? `- Sujets à inclure obligatoirement : ${topicsToInclude}` : ''}
-            ${topicsToExclude ? `- Sujets à exclure impérativement : ${topicsToExclude}` : ''}`;
+            let linksStr = '';
+            if (links.length > 0) {
+                linksStr = lng === 'en'
+                    ? `Available links and products:\n${links.map(l => `- ${l.title}: ${l.description} (${l.url}) - CTA: ${l.cta}`).join('\n')}`
+                    : `Liens et produits disponibles :\n${links.map(l => `- ${l.title}: ${l.description} (${l.url}) - CTA: ${l.cta}`).join('\n')}`;
+            }
 
-            const userPrompt = `Rédige un message pour le groupe avec l'objectif suivant : ${objective}.
-            ${additionalInfo ? `Informations complémentaires à inclure : ${additionalInfo}` : ''}`;
+            const topicsIncStr = topicsToInclude ? (lng === 'en' ? `- Mandatory topics to include: ${topicsToInclude}` : `- Sujets à inclure obligatoirement : ${topicsToInclude}`) : '';
+            const topicsExcStr = topicsToExclude ? (lng === 'en' ? `- Mandatory topics to exclude: ${topicsToExclude}` : `- Sujets à exclure impérativement : ${topicsToExclude}`) : '';
+
+            const systemPrompt = i18n.t('ai.group_gen_system', {
+                lng,
+                mission: profile?.mission || (lng === 'en' ? 'Not specified' : 'Non spécifiée'),
+                objectives: profile?.objectives || (lng === 'en' ? 'Not specified' : 'Non spécifiés'),
+                rules: profile?.rules || (lng === 'en' ? 'Not specified' : 'Non spécifiées'),
+                theme: profile?.theme || (lng === 'en' ? 'General' : 'Générale'),
+                links: linksStr,
+                tone: tone || (lng === 'en' ? 'adapted to the group' : 'adapté au groupe'),
+                length: length || (lng === 'en' ? 'concise' : 'concis'),
+                topicsInclude: topicsIncStr,
+                topicsExclude: topicsExcStr
+            });
+
+            const additionalStr = additionalInfo ? (lng === 'en' ? `Additional information to include: ${additionalInfo}` : `Informations complémentaires à inclure : ${additionalInfo}`) : '';
+
+            const userPrompt = i18n.t('ai.group_gen_user', {
+                lng,
+                objective,
+                additional: additionalStr
+            });
 
             // Get conversation memory for the group to maintain context
             const history = this.getMemory(userId, groupId, 5);

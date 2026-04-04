@@ -255,6 +255,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
+                  className="h-8 px-2 text-xs font-medium text-muted-foreground"
+                  onClick={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+                >
+                  {locale === 'fr' ? 'FR' : 'EN'}
+                </Button>
+                <Button
+                  variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-muted-foreground"
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}

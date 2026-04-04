@@ -33,10 +33,12 @@ import { api } from "@/lib/api"
 import { useAuth, useUser } from "@clerk/clerk-react"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender, safeDate } from "@/lib/utils"
+import { useI18n } from "@/i18n/i18n-provider"
 
 export default function ActivitiesPage() {
   const { getToken } = useAuth()
   const { user } = useUser()
+  const { t } = useI18n()
   const [activities, setActivities] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState("")
@@ -89,9 +91,9 @@ export default function ActivitiesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <History className="h-5 w-5 text-primary" /> Journal Activités
+            <History className="h-5 w-5 text-primary" /> {t("dashboard.activities.title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Historique complet des actions du système.</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.activities.desc")}</p>
         </div>
 
         <Button size="sm" variant="outline" onClick={fetchActivities} disabled={loading} className="rounded-full h-8">

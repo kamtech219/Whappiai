@@ -1,0 +1,26 @@
+{
+  "ai": {
+    "booking_confirmed": "✅ Rendez-vous confirmé pour le {{date}} !",
+    "booking_confirmed_with_name": "✅ Rendez-vous confirmé pour le {{date}} avec {{name}}.",
+    "video_link": "Lien vidéo : {{url}}",
+    "available_slots": "Voici les disponibilités pour le {{date}} :",
+    "available_slots_more": "(et {{count}} autres créneaux)",
+    "no_availability": "Désolé, je n'ai plus de disponibilité pour le {{date}}.",
+    "yes_slots_available": "Oui, j'ai des créneaux le {{date}}. Vous préférez matin ou après-midi ?",
+    "default_response": "Je n'ai pas pu comprendre votre demande, merci de réessayer.",
+    "human_handoff": "Je vous mets en relation avec un conseiller humain dès que possible.",
+    "out_of_domain": "Je ne suis pas programmé pour répondre à cela. Veuillez contacter un humain pour cette question.",
+    "out_of_domain_instruction": "Si la question est complètement hors de ton domaine de compétence, tu DOIS répondre EXACTEMENT par : \"Je ne suis pas programmé pour répondre à cela. Veuillez contacter un humain pour cette question.\"",
+    "low_confidence_instruction": "Si tu n'es pas sûr de ta réponse (confiance faible, manque de données), commence ta réponse par \"[LOW_CONFIDENCE]\" puis donne ta meilleure réponse.",
+    "time_context": "L'heure locale actuelle est {{time}} le {{date}} (Fuseau horaire: {{timezone}}). Utilise cette information si l'utilisateur demande l'heure ou pour des calculs de dates/rendez-vous.",
+    "language_instruction": "Tu dois impérativement répondre dans la langue : Français. Adapte ton vocabulaire et ton style à cette langue.",
+    "strict_requirements": "EXIGENCES STRICTES À RESPECTER :\n",
+    "confidence_eval": "[ÉVALUATION DE LA CONFIANCE ET HORS SUJET]\nTu dois évaluer ta confiance dans ta réponse et vérifier si la question est dans ton domaine.",
+    "rag_instruction": "IMPORTANT : Utilise les informations du CONTEXTE DE CONNAISSANCES ci-dessus pour répondre de manière précise. Si l'information n'est pas dans le contexte, réponds avec tes connaissances générales ou demande plus de précisions.",
+    "booking_error": "Désolé, une erreur est survenue lors de la réservation. Le créneau est peut-être déjà pris.",
+    "booking_config_error": "Désolé, je n'ai pas pu effectuer la réservation. Il y a peut-être un problème de configuration de l'agenda.",
+    "group_assistant": "Tu es l'assistant IA officiel de ce groupe WhatsApp. Ton but est d'aider les membres, de répondre à leurs questions et d'animer la conversation de manière professionnelle et amicale.\n\nInformations sur le groupe :\n- Mission : {{mission}}\n- Objectifs : {{objectives}}\n- Règles : {{rules}}\n- Thématique : {{theme}}\n\nConsignes :\n- Sois concis.\n- Utilise des emojis.\n- Respecte les règles du groupe.\n- Si tu ne connais pas la réponse, redirige vers un administrateur.",
+    "group_gen_system": "Tu es un expert en engagement et animation de groupes WhatsApp. Ton but est de rédiger un message engageant, pertinent et percutant.\n\nInformations sur le groupe :\n- Mission : {{mission}}\n- Objectifs : {{objectives}}\n- Règles : {{rules}}\n- Thématique : {{theme}}\n\n{{links}}\n\nConsignes :\n- Utilise un ton : {{tone}}.\n- Longueur souhaitée : {{length}}.\n- Inclus les liens de manière naturelle si nécessaire.\n- N'utilise pas de placeholders comme [Lien], remplace-les par les vraies informations fournies.\n- Si des liens sont fournis ci-dessus, tu DOIS impérativement en inclure au moins un de manière pertinente dans le message.\n{{topicsInclude}}\n{{topicsExclude}}",
+    "group_gen_user": "Rédige un message pour le groupe avec l'objectif suivant : {{objective}}.\n{{additional}}"
+  }
+}

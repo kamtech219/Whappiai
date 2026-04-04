@@ -44,11 +44,13 @@ import { useAuth, useUser } from "@clerk/clerk-react"
 import { useWebSocket } from "@/providers/websocket-provider"
 import { toast } from "sonner"
 import { cn, ensureString, safeRender } from "@/lib/utils"
+import { useI18n } from "@/i18n/i18n-provider"
 
 function AssistantIAPageContent() {
   const router = useRouter()
   const { getToken } = useAuth()
   const { user } = useUser()
+  const { t } = useI18n()
   const { lastMessage } = useWebSocket()
   const [sessions, setSessions] = React.useState<any[]>([])
   const [aiConfigs, setAiConfigs] = React.useState<Record<string, any>>({})
@@ -85,7 +87,7 @@ function AssistantIAPageContent() {
       )
       setAiConfigs(configs)
     } catch (e) {
-      toast.error("Erreur de chargement")
+      toast.error(t("dashboard.ai.loading_error"))
     } finally {
       setLoading(false)
     }
@@ -139,9 +141,9 @@ function AssistantIAPageContent() {
       const token = await getToken()
       await api.sessions.updateAI(sessionId, { ...config, enabled }, token || undefined)
       setAiConfigs(prev => ({ ...prev, [sessionId]: { ...config, enabled } }))
-      toast.success(enabled ? "IA activ&eacute;e" : "IA d&eacute;sactiv&eacute;e")
+      toast.success(enabled ? t("dashboard.ai.ai_activated") : t("dashboard.ai.ai_deactivated"))
     } catch (e) {
-      toast.error("Erreur")
+      toast.error(t("dashboard.ai.ai_toggle_error"))
     }
   }
 
@@ -155,16 +157,16 @@ function AssistantIAPageContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Brain className="h-5 w-5 text-primary" /> Assistant IA
+            <Brain className="h-5 w-5 text-primary" /> {t("dashboard.ai.title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Pilotez l&apos;intelligence de vos sessions WhatsApp.</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.ai.desc")}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
             {isAdmin && (
                 <Button variant="outline" size="sm" className="h-8 rounded-full flex-1 sm:flex-none px-4" onClick={() => router.push('/dashboard/ai-models')}>
-                <Settings className="h-3 w-3 mr-2" /> G&eacute;rer les mod&egrave;les
+                <Settings className="h-3 w-3 mr-2" /> {t("dashboard.ai.manage_models")}
                 </Button>
             )}
             {sessions.length > 0 && (
@@ -178,7 +180,7 @@ function AssistantIAPageContent() {
           <div className="relative w-full sm:w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Chercher..."
+              placeholder={t("dashboard.ai.search_placeholder")}
               className="pl-8 h-8 text-[11px] bg-muted/20 border-none"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -208,7 +210,7 @@ function AssistantIAPageContent() {
                           ? "bg-green-500/10 text-green-700 dark:text-green-400"
                           : "bg-muted text-muted-foreground"
                       )}>
-                        {session.isConnected ? "Live" : "Offline"}
+                        {session.isConnected ? t("dashboard.ai.status_live") : t("dashboard.ai.status_offline")}
                       </Badge>
                       <Badge variant="outline" className="text-[9px] font-semibold text-muted-foreground h-4 px-1.5 border-muted-foreground/20">
                         {config?.mode || 'bot'}
@@ -221,32 +223,32 @@ function AssistantIAPageContent() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => { setEditingSessionId(session.sessionId); setIsEditDialogOpen(true); }} className="text-xs">
-                        <Settings2 className="h-3.5 w-3.5 mr-2" /> Quick Edit
+                        <Settings2 className="h-3.5 w-3.5 mr-2" /> {t("dashboard.ai.quick_edit")}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => router.push(`/dashboard/ai/config?sessionId=${safeRender(session.sessionId)}`)} className="text-xs">
-                        <Brain className="h-3.5 w-3.5 mr-2" /> Config Avanc&eacute;e
+                        <Brain className="h-3.5 w-3.5 mr-2" /> {t("dashboard.ai.adv_config")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </CardHeader>
                 <CardContent className="p-4 pt-0 space-y-4 flex-1">
                    <div className="rounded-md bg-muted/50 p-3 text-[11px] text-muted-foreground line-clamp-2 border-l-2 border-primary/40 italic leading-relaxed">
-                      {safeRender(config?.prompt, 'Aucun prompt configur&eacute;')}
+                      {safeRender(config?.prompt, t("dashboard.ai.no_prompt"))}
                    </div>
 
                    <div className="grid grid-cols-2 gap-2">
                       <div className="p-2 rounded bg-muted/20 border border-muted/30">
-                         <p className="text-[9px] font-semibold text-muted-foreground mb-0.5">Mod&egrave;le</p>
+                         <p className="text-[9px] font-semibold text-muted-foreground mb-0.5">{t("dashboard.ai.model_label")}</p>
                          <p className="text-[10px] font-semibold truncate">{safeRender(modelName)}</p>
                       </div>
                       <div className="p-2 rounded bg-muted/20 border border-muted/30">
-                         <p className="text-[9px] font-semibold text-muted-foreground mb-0.5">Usage IA</p>
-                         <p className="text-[10px] font-semibold">{(config?.stats?.sent || 0) + (config?.stats?.received || 0)} msg</p>
+                         <p className="text-[9px] font-semibold text-muted-foreground mb-0.5">{t("dashboard.ai.ai_usage")}</p>
+                         <p className="text-[10px] font-semibold">{(config?.stats?.sent || 0) + (config?.stats?.received || 0)} {t("dashboard.ai.msg")}</p>
                       </div>
                    </div>
                 </CardContent>
                 <CardFooter className="p-4 pt-0 border-t border-muted/30 flex items-center justify-between bg-muted/5">
-                   <span className="text-[10px] font-semibold tracking-widest text-muted-foreground">Intelligence Active</span>
+                   <span className="text-[10px] font-semibold tracking-widest text-muted-foreground">{t("dashboard.ai.active_intelligence")}</span>
                    <Switch
                      checked={!!config?.enabled}
                      onCheckedChange={(v) => handleToggleAI(session.sessionId, v)}

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { BillingPlans } from "@/components/dashboard/billing-plans"
 import { api } from "@/lib/api"
 import { useAuth } from "@clerk/clerk-react"
+import { useI18n } from "@/i18n/i18n-provider"
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import {
 
 export default function BillingPage() {
   const { getToken } = useAuth()
+  const { t } = useI18n()
   const [credits, setCredits] = React.useState<any>(null)
   const [activeSessions, setActiveSessions] = React.useState<number>(0)
   const [paymentHistory, setPaymentHistory] = React.useState<any[]>([])
@@ -49,7 +51,7 @@ export default function BillingPage() {
     fetchBillingData()
   }, [getToken])
 
-  const planName = credits?.plan === 'free' ? 'ESSAI GRATUIT' : (credits?.plan?.toUpperCase() || 'ESSAI GRATUIT')
+  const planName = credits?.plan === 'free' ? t("dashboard.billing.plan_free") : (credits?.plan?.toUpperCase() || t("dashboard.billing.plan_free"))
   const renewalDate = credits?.expiry ? new Date(credits.expiry).toLocaleDateString() : 'N/A'
 
   return (
@@ -57,28 +59,28 @@ export default function BillingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-primary" /> Abonnement & Plans
+            <CreditCard className="h-5 w-5 text-primary" /> {t("dashboard.billing.title")}
           </h1>
-          <p className="text-sm text-muted-foreground">Gérez vos limites et boostez votre automatisation.</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.billing.desc")}</p>
         </div>
 
         <div className="flex items-center gap-3">
           {credits?.plan && credits.plan !== 'free' && (
             <p className="text-xs text-muted-foreground">
-              Renouvellement: <span className="font-semibold text-foreground">{renewalDate}</span>
+              {t("dashboard.billing.renewal")} <span className="font-semibold text-foreground">{renewalDate}</span>
             </p>
           )}
           <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/20 px-4 py-1.5 h-auto text-[10px] font-semibold tracking-widest rounded-full">
-             Plan Actuel : {planName}
+             {t("dashboard.billing.current_plan")} {planName}
           </Badge>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
          {[
-           { label: "Sessions actives", val: `${activeSessions}`, icon: Zap },
-           { label: "Messages ce mois", val: `${credits?.used || 0} / ${credits?.balance || 0}`, icon: Sparkles },
-           { label: "Niveau de support", val: "Standard", icon: ShieldCheck }
+           { label: t("dashboard.billing.active_sessions"), val: `${activeSessions}`, icon: Zap },
+           { label: t("dashboard.billing.messages_month"), val: `${credits?.used || 0} / ${credits?.balance || 0}`, icon: Sparkles },
+           { label: t("dashboard.billing.support_level"), val: t("dashboard.billing.standard"), icon: ShieldCheck }
          ].map((stat, i) => (
            <Card key={i} className="border-none bg-muted/20 shadow-sm border-border/50">
              <CardContent className="p-4 flex items-center justify-between">
@@ -94,30 +96,30 @@ export default function BillingPage() {
 
       <div className="space-y-6">
         <div className="text-center space-y-2 mb-10">
-           <h2 className="text-2xl font-bold tracking-tight">Choisissez votre puissance</h2>
-           <p className="text-muted-foreground text-sm max-w-sm mx-auto">Activez plus de sessions et d&apos;intelligence IA dès maintenant.</p>
+           <h2 className="text-2xl font-bold tracking-tight">{t("dashboard.billing.choose_power")}</h2>
+           <p className="text-muted-foreground text-sm max-w-sm mx-auto">{t("dashboard.billing.activate_more")}</p>
         </div>
 
         <BillingPlans currentPlan={credits?.plan} />
       </div>
 
       <div className="space-y-6 mt-12">
-        <h2 className="text-xl font-bold tracking-tight">Historique des paiements</h2>
+        <h2 className="text-xl font-bold tracking-tight">{t("dashboard.billing.payment_history")}</h2>
         <Card className="border-border/50">
           <CardContent className="p-0">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-[150px]">Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
+                  <TableHead className="w-[150px]">{t("dashboard.billing.date")}</TableHead>
+                  <TableHead>{t("dashboard.billing.description")}</TableHead>
+                  <TableHead className="text-right">{t("dashboard.billing.amount")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paymentHistory.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
-                      Aucun historique de paiement disponible.
+                      {t("dashboard.billing.no_history")}
                     </TableCell>
                   </TableRow>
                 ) : (
