@@ -56,6 +56,14 @@ const AIService = require('../src/services/ai');
 const { Session } = require('../src/models');
 
 describe('AIService', () => {
+    beforeAll(() => {
+        jest.useFakeTimers();
+    });
+
+    afterAll(() => {
+        jest.useRealTimers();
+    });
+
     beforeEach(() => {
         jest.clearAllMocks();
     });
