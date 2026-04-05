@@ -64,9 +64,17 @@ class QueueService {
 
         try {
             // Fetch session config for customized anti-ban delays once per queue processing
-            const session = db.prepare('SELECT ai_delay_min, ai_delay_max FROM whatsapp_sessions WHERE id = ?').get(sessionId);
-            const min = (session?.ai_delay_min ?? 1) * 1000;
-            const max = (session?.ai_delay_max ?? 5) * 1000;
+            // Use targeted query for performance, but cache it using MemoryCache to avoid DB hits
+            let sessionDelays = activeQueues.get(`delays:${sessionId}`);
+            if (!sessionDelays) {
+                sessionDelays = db.prepare('SELECT ai_delay_min, ai_delay_max FROM whatsapp_sessions WHERE id = ?').get(sessionId);
+                activeQueues.set(`delays:${sessionId}`, sessionDelays);
+                // Clear the cache after 60s
+                setTimeout(() => activeQueues.delete(`delays:${sessionId}`), 60000).unref();
+            }
+
+            const min = (sessionDelays?.ai_delay_min ?? 1) * 1000;
+            const max = (sessionDelays?.ai_delay_max ?? 5) * 1000;
 
             while (true) {
                 const queue = activeQueues.get(sessionId);

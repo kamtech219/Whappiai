@@ -644,5 +644,6 @@ module.exports = {
     handleIncomingMessage,
     handleParticipantUpdate,
     isGroupAdmin,
-    getGroupMetadata
+    getGroupMetadata,
+    getGroupSettings
 };
