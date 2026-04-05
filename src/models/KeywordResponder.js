@@ -5,6 +5,9 @@
 
 const { db } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const MemoryCache = require('../utils/cache');
+
+const activeRulesCache = new MemoryCache(60); // 60 seconds TTL
 
 class KeywordResponder {
     /**
@@ -18,7 +21,13 @@ class KeywordResponder {
      * Find active rules for a session
      */
     static findActiveBySessionId(sessionId) {
-        return db.prepare('SELECT * FROM keyword_responders WHERE session_id = ? AND is_active = 1').all(sessionId);
+        const cacheKey = `active_rules_${sessionId}`;
+        const cached = activeRulesCache.get(cacheKey);
+        if (cached) return cached;
+
+        const rules = db.prepare('SELECT * FROM keyword_responders WHERE session_id = ? AND is_active = 1').all(sessionId);
+        activeRulesCache.set(cacheKey, rules);
+        return rules;
     }
 
     /**
@@ -41,6 +50,8 @@ class KeywordResponder {
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(id, session_id, keyword, match_type || 'contains', response_type || 'text', response_content, file_name || null);
 
+        activeRulesCache.delete(`active_rules_${session_id}`);
+
         return this.findById(id);
     }
 
@@ -48,6 +59,9 @@ class KeywordResponder {
      * Update a rule
      */
     static update(id, data) {
+        const existingRule = this.findById(id);
+        if (!existingRule) return null;
+
         const { keyword, match_type, response_type, response_content, file_name, is_active } = data;
 
         db.prepare(`
@@ -62,6 +76,8 @@ class KeywordResponder {
             WHERE id = ?
         `).run(keyword, match_type, response_type, response_content, file_name, is_active, id);
 
+        activeRulesCache.delete(`active_rules_${existingRule.session_id}`);
+
         return this.findById(id);
     }
 
@@ -69,7 +85,14 @@ class KeywordResponder {
      * Delete a rule
      */
     static delete(id) {
-        return db.prepare('DELETE FROM keyword_responders WHERE id = ?').run(id);
+        const existingRule = this.findById(id);
+        const result = db.prepare('DELETE FROM keyword_responders WHERE id = ?').run(id);
+
+        if (existingRule && result.changes > 0) {
+            activeRulesCache.delete(`active_rules_${existingRule.session_id}`);
+        }
+
+        return result;
     }
 }
 
