@@ -10,6 +10,9 @@ const { db } = require('../config/database');
 // In-memory queue state
 const activeQueues = new Map(); // sessionId -> Array of tasks
 
+// Cache for the delay configuration query
+let delayConfigStmt = null;
+
 class QueueService {
     /**
      * Add a message to the outbound queue
@@ -64,7 +67,10 @@ class QueueService {
 
         try {
             // Fetch session config for customized anti-ban delays once per queue processing
-            const session = db.prepare('SELECT ai_delay_min, ai_delay_max FROM whatsapp_sessions WHERE id = ?').get(sessionId);
+            if (!delayConfigStmt) {
+                delayConfigStmt = db.prepare('SELECT ai_delay_min, ai_delay_max FROM whatsapp_sessions WHERE id = ?');
+            }
+            const session = delayConfigStmt.get(sessionId);
             const min = (session?.ai_delay_min ?? 1) * 1000;
             const max = (session?.ai_delay_max ?? 5) * 1000;
 
