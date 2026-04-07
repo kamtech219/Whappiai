@@ -8,6 +8,11 @@ const bcrypt = require('../utils/bcrypt-compat');
 const { log } = require('../utils/logger');
 const crypto = require('crypto');
 
+// Prepared Statements Cache
+const findByIdStmt = db.prepare('SELECT * FROM users WHERE id = ?');
+const findByEmailStmt = db.prepare('SELECT * FROM users WHERE email = ?');
+const getAllStmt = db.prepare('SELECT * FROM users ORDER BY created_at DESC');
+
 class User {
     /**
      * Create or Update a user from Clerk
@@ -87,8 +92,7 @@ class User {
     static findById(id) {
         if (!id) return null;
         
-        const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-        const user = stmt.get(id);
+        const user = findByIdStmt.get(id);
         
         if (!user && id === 'legacy-admin') {
             const adminUser = this.findByEmail('admin@localhost');
@@ -105,8 +109,7 @@ class User {
      */
     static findByEmail(email) {
         if (!email) return null;
-        const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-        return stmt.get(email.toLowerCase());
+        return findByEmailStmt.get(email.toLowerCase());
     }
 
     /**
@@ -302,8 +305,7 @@ class User {
      * @returns {array} Array of users
      */
     static getAll() {
-        const stmt = db.prepare('SELECT * FROM users ORDER BY created_at DESC');
-        return stmt.all().map(u => this._sanitize(u));
+        return getAllStmt.all().map(u => this._sanitize(u));
     }
 
     /**

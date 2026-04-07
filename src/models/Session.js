@@ -17,6 +17,14 @@ const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 
 const sessionCache = new MemoryCache(60); // 60 seconds TTL
 
+// Prepared Statements Cache
+const findByOwnerEmailStmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE owner_email = ?');
+const findByIdStmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
+const findByTokenStmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE token = ?');
+const getAllAdminStmt = db.prepare('SELECT * FROM whatsapp_sessions ORDER BY created_at DESC');
+const getAllByOwnerStmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE owner_email = ? ORDER BY created_at DESC');
+const getSessionIdsByOwnerStmt = db.prepare('SELECT id FROM whatsapp_sessions WHERE owner_email = ?');
+
 class Session {
     /**
      * Create a new session
@@ -56,8 +64,7 @@ class Session {
      * @returns {object|null} Session object or null
      */
     static findByOwnerEmail(email) {
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE owner_email = ?');
-        return stmt.get(email?.toLowerCase());
+        return findByOwnerEmailStmt.get(email?.toLowerCase());
     }
 
     /**
@@ -69,8 +76,7 @@ class Session {
         const cached = sessionCache.get(sessionId);
         if (cached) return cached;
 
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
-        const session = stmt.get(sessionId);
+        const session = findByIdStmt.get(sessionId);
 
         if (session && session.ai_key && session.ai_key.includes(':')) {
             try {
@@ -93,8 +99,7 @@ class Session {
      * @returns {object|null} Session object or null
      */
     static findByToken(token) {
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE token = ?');
-        return stmt.get(token);
+        return findByTokenStmt.get(token);
     }
 
     /**
@@ -107,8 +112,7 @@ class Session {
         // SECURITY: Only admins (with explicit isAdmin=true) can see all sessions.
         // If ownerEmail is null/empty AND not admin → return EMPTY list to prevent data leak.
         if (isAdmin === true) {
-            const stmt = db.prepare('SELECT * FROM whatsapp_sessions ORDER BY created_at DESC');
-            return stmt.all();
+            return getAllAdminStmt.all();
         }
 
         if (!ownerEmail || typeof ownerEmail !== 'string' || ownerEmail.trim() === '') {
@@ -116,8 +120,7 @@ class Session {
             return [];
         }
 
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE owner_email = ? ORDER BY created_at DESC');
-        return stmt.all(ownerEmail.toLowerCase().trim());
+        return getAllByOwnerStmt.all(ownerEmail.toLowerCase().trim());
     }
 
     /**
@@ -313,8 +316,7 @@ class Session {
      * @returns {array} Array of session IDs
      */
     static getSessionIdsByOwner(ownerEmail) {
-        const stmt = db.prepare('SELECT id FROM whatsapp_sessions WHERE owner_email = ?');
-        return stmt.all(ownerEmail.toLowerCase()).map(s => s.id);
+        return getSessionIdsByOwnerStmt.all(ownerEmail.toLowerCase()).map(s => s.id);
     }
 
     /**
