@@ -6,6 +6,18 @@
 const { db } = require('../config/database');
 const { log } = require('../utils/logger');
 
+// Prepared Statements Cache
+const logStmt = db.prepare(`
+    INSERT INTO activity_logs (
+        user_email, action, resource, resource_id, details, ip, user_agent, success, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+`);
+
+const cleanOldStmt = db.prepare(`
+    DELETE FROM activity_logs
+    WHERE created_at < datetime('now', '-' || ? || ' days')
+`);
+
 class ActivityLog {
     /**
      * Log an activity
@@ -13,13 +25,7 @@ class ActivityLog {
      * @returns {object} Created log entry
      */
     static log(data) {
-        const stmt = db.prepare(`
-            INSERT INTO activity_logs (
-                user_email, action, resource, resource_id, details, ip, user_agent, success, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `);
-
-        const result = stmt.run(
+        const result = logStmt.run(
             data.userEmail || null,
             data.action,
             data.resource || null,
@@ -397,11 +403,7 @@ class ActivityLog {
      * @returns {number} Number of deleted logs
      */
     static cleanOld(daysToKeep = 30) {
-        const stmt = db.prepare(`
-            DELETE FROM activity_logs 
-            WHERE created_at < datetime('now', '-' || ? || ' days')
-        `);
-        const result = stmt.run(daysToKeep);
+        const result = cleanOldStmt.run(daysToKeep);
         return result.changes;
     }
 }

@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## $(date +%Y-%m-%d) - [SQLite Statement Compilation Overhead]
+**Learning:** In a heavily data-driven backend using `better-sqlite3`, placing `db.prepare()` directly inside instance methods or loops forces SQLite to re-compile the SQL statement on every invocation. While `better-sqlite3` is fast, this repeated parsing and compilation overhead degrades performance under load.
+**Action:** Extract frequently used prepared statements (`db.prepare(...)`) into module-level/file-scoped constants. This ensures the statement is compiled exactly once during module load and reused across all subsequent database calls, providing a measurable reduction in CPU cycles per operation without modifying business logic.
