@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2026-04-13 - [Optimize DB queries by caching better-sqlite3 prepared statements]
+**Learning:** `better-sqlite3` states that compiling SQL statements into prepared statements is slow and should be cached where possible to improve performance. In high-frequency access functions such as `findById` and `findByEmail` in `User.js` and `Session.js`, invoking `db.prepare(...)` on each call introduces considerable and measurable CPU overhead. Repeated testing showed a ~3-10x latency difference.
+**Action:** Always cache prepared statements (`db.prepare(...)`) in file-scoped variables (or using `MemoryCache`) instead of dynamically defining them within heavily utilized functions or tight loops.
