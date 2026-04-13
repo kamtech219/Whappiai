@@ -17,6 +17,9 @@ const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 
 const sessionCache = new MemoryCache(60); // 60 seconds TTL
 
+// Cached prepared statements for high-frequency queries
+let findByIdStmt;
+
 class Session {
     /**
      * Create a new session
@@ -69,8 +72,10 @@ class Session {
         const cached = sessionCache.get(sessionId);
         if (cached) return cached;
 
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
-        const session = stmt.get(sessionId);
+        if (!findByIdStmt) {
+            findByIdStmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
+        }
+        const session = findByIdStmt.get(sessionId);
 
         if (session && session.ai_key && session.ai_key.includes(':')) {
             try {
