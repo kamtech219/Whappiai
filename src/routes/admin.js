@@ -22,17 +22,24 @@ router.get('/stats', requireAdmin, asyncHandler(async (req, res) => {
     // 1. Global Activity Summary
     const summary = ActivityLog.getSummary(null, days);
 
-    // 2. User Statistics
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const activeUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE is_active = 1").get().count;
+    // 2-4. Combined Global Statistics (Users, Sessions, Credits)
+    // ⚡ Bolt: Bundled diverse global statistics into a single query using subselects to avoid multiple sequential I/O overhead.
+    const globalStats = db.prepare(`
+        SELECT
+            (SELECT COUNT(*) FROM users) as totalUsers,
+            (SELECT COUNT(*) FROM users WHERE is_active = 1) as activeUsers,
+            (SELECT COUNT(*) FROM whatsapp_sessions) as totalSessions,
+            (SELECT COUNT(*) FROM whatsapp_sessions WHERE status = 'CONNECTED') as connectedSessions,
+            (SELECT SUM(amount) FROM credit_history WHERE type = 'debit') as totalCreditsDeducted,
+            (SELECT SUM(amount) FROM credit_history WHERE type = 'purchase') as totalCreditsPurchased
+    `).get();
 
-    // 3. Session Statistics
-    const totalSessions = db.prepare('SELECT COUNT(*) as count FROM whatsapp_sessions').get().count;
-    const connectedSessions = db.prepare("SELECT COUNT(*) as count FROM whatsapp_sessions WHERE status = 'CONNECTED'").get().count;
-
-    // 4. Financial/Credit Statistics
-    const totalCreditsDeducted = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'debit'").get().total || 0;
-    const totalCreditsPurchased = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'purchase'").get().total || 0;
+    const totalUsers = globalStats.totalUsers || 0;
+    const activeUsers = globalStats.activeUsers || 0;
+    const totalSessions = globalStats.totalSessions || 0;
+    const connectedSessions = globalStats.connectedSessions || 0;
+    const totalCreditsDeducted = globalStats.totalCreditsDeducted || 0;
+    const totalCreditsPurchased = globalStats.totalCreditsPurchased || 0;
 
     // 5. AI Usage Stats
     const aiStats = db.prepare(`
