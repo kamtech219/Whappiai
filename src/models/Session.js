@@ -17,6 +17,11 @@ const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 
 const sessionCache = new MemoryCache(60); // 60 seconds TTL
 
+// ⚡ Bolt: Cache prepared statements for frequently called read operations
+let stmtFindByOwnerEmail = null;
+let stmtFindById = null;
+let stmtFindByToken = null;
+
 class Session {
     /**
      * Create a new session
@@ -56,8 +61,10 @@ class Session {
      * @returns {object|null} Session object or null
      */
     static findByOwnerEmail(email) {
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE owner_email = ?');
-        return stmt.get(email?.toLowerCase());
+        if (!stmtFindByOwnerEmail) {
+            stmtFindByOwnerEmail = db.prepare('SELECT * FROM whatsapp_sessions WHERE owner_email = ?');
+        }
+        return stmtFindByOwnerEmail.get(email?.toLowerCase());
     }
 
     /**
@@ -69,8 +76,10 @@ class Session {
         const cached = sessionCache.get(sessionId);
         if (cached) return cached;
 
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
-        const session = stmt.get(sessionId);
+        if (!stmtFindById) {
+            stmtFindById = db.prepare('SELECT * FROM whatsapp_sessions WHERE id = ?');
+        }
+        const session = stmtFindById.get(sessionId);
 
         if (session && session.ai_key && session.ai_key.includes(':')) {
             try {
@@ -93,8 +102,10 @@ class Session {
      * @returns {object|null} Session object or null
      */
     static findByToken(token) {
-        const stmt = db.prepare('SELECT * FROM whatsapp_sessions WHERE token = ?');
-        return stmt.get(token);
+        if (!stmtFindByToken) {
+            stmtFindByToken = db.prepare('SELECT * FROM whatsapp_sessions WHERE token = ?');
+        }
+        return stmtFindByToken.get(token);
     }
 
     /**

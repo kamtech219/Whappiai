@@ -8,6 +8,11 @@ const bcrypt = require('../utils/bcrypt-compat');
 const { log } = require('../utils/logger');
 const crypto = require('crypto');
 
+// ⚡ Bolt: Cache prepared statements for frequently called read operations
+// This prevents SQLite from recompiling the query string on every invocation.
+let stmtFindById = null;
+let stmtFindByEmail = null;
+
 class User {
     /**
      * Create or Update a user from Clerk
@@ -87,8 +92,10 @@ class User {
     static findById(id) {
         if (!id) return null;
         
-        const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-        const user = stmt.get(id);
+        if (!stmtFindById) {
+            stmtFindById = db.prepare('SELECT * FROM users WHERE id = ?');
+        }
+        const user = stmtFindById.get(id);
         
         if (!user && id === 'legacy-admin') {
             const adminUser = this.findByEmail('admin@localhost');
@@ -105,8 +112,11 @@ class User {
      */
     static findByEmail(email) {
         if (!email) return null;
-        const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-        return stmt.get(email.toLowerCase());
+
+        if (!stmtFindByEmail) {
+            stmtFindByEmail = db.prepare('SELECT * FROM users WHERE email = ?');
+        }
+        return stmtFindByEmail.get(email.toLowerCase());
     }
 
     /**

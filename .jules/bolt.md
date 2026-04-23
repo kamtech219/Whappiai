@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2026-04-23 - [Optimize DB Read Queries Caching Prepared Statements]
+**Learning:** Calling `db.prepare()` continuously inside functions that are invoked very frequently (such as `findById` or `findByEmail` inside loops or message handling hooks) introduces unnecessary CPU and synchronous I/O bottlenecks in SQLite via `better-sqlite3`.
+**Action:** When a method executes a static read query frequently, cache the prepared statement in a module-level variable to execute the query without recompiling it every time, significantly improving lookup times.
