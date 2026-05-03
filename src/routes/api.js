@@ -442,17 +442,16 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             if (req.currentUser && req.currentUser.role !== 'admin') {
                 const user = User.findByEmail(req.currentUser.email);
                 if (user) {
-                    const sessionIds = Session.getSessionIdsByOwner(user.email);
+                    const connectedSessionIds = Session.getConnectedSessionIdsByOwner(user.email);
                     const activeSockets = require('../services/whatsapp').getActiveSessions();
 
-                    // Count only CONNECTED or active sessions
+                    // Filter CONNECTED sessions against active memory sockets (eliminates N+1 DB queries)
                     let activeCount = 0;
-                    sessionIds.forEach(id => {
-                        const s = Session.findById(id);
-                        if (s && s.status === 'CONNECTED' && activeSockets.has(id)) {
+                    for (const id of connectedSessionIds) {
+                        if (activeSockets.has(id)) {
                             activeCount++;
                         }
-                    });
+                    }
 
                     // Determine max sessions based on plan
                     let maxSessions = 1; // Free/Starter default
