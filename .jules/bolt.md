@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-12-07 - [Optimize DB queries for counting active sessions]
+**Learning:** In `src/routes/api.js` inside the `POST /sessions` endpoint, the logic to verify session limits fetched all session IDs for the user and then executed an individual `Session.findById(id)` query for each ID in a loop to check its status. This resulted in an N+1 query problem, creating unnecessary overhead.
+**Action:** Created `getConnectedSessionIdsByOwner` in `src/models/Session.js` to fetch only 'CONNECTED' session IDs in a single SQL query, then filtered these IDs against the `activeSockets` in-memory map. This avoids fetching complete session objects repeatedly and eliminates the N+1 query overhead.

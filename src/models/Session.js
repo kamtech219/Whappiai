@@ -318,6 +318,16 @@ class Session {
     }
 
     /**
+     * Get connected session IDs by owner
+     * @param {string} ownerEmail - Owner's email
+     * @returns {array} Array of session IDs
+     */
+    static getConnectedSessionIdsByOwner(ownerEmail) {
+        const stmt = db.prepare('SELECT id FROM whatsapp_sessions WHERE owner_email = ? AND status = ?');
+        return stmt.all(ownerEmail.toLowerCase(), 'CONNECTED').map(s => s.id);
+    }
+
+    /**
      * Sync database with filesystem
      * Detects session folders that are not in the DB and adds them
      */
