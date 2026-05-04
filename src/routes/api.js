@@ -442,14 +442,15 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             if (req.currentUser && req.currentUser.role !== 'admin') {
                 const user = User.findByEmail(req.currentUser.email);
                 if (user) {
-                    const sessionIds = Session.getSessionIdsByOwner(user.email);
+                    // ⚡ Bolt: Optimized N+1 query problem. Previously fetched all IDs and called findById(id) in a loop.
+                    // Now directly fetches only 'CONNECTED' session IDs in a single SQL query.
+                    const connectedSessionIds = Session.getConnectedSessionIdsByOwner(user.email);
                     const activeSockets = require('../services/whatsapp').getActiveSessions();
 
                     // Count only CONNECTED or active sessions
                     let activeCount = 0;
-                    sessionIds.forEach(id => {
-                        const s = Session.findById(id);
-                        if (s && s.status === 'CONNECTED' && activeSockets.has(id)) {
+                    connectedSessionIds.forEach(id => {
+                        if (activeSockets.has(id)) {
                             activeCount++;
                         }
                     });
