@@ -318,6 +318,17 @@ class Session {
     }
 
     /**
+     * ⚡ Bolt: Get connected session IDs by owner
+     * Optimized to fetch only connected session IDs in a single query to avoid N+1 query problems.
+     * @param {string} ownerEmail - Owner's email
+     * @returns {array} Array of session IDs with status 'CONNECTED'
+     */
+    static getConnectedSessionIdsByOwner(ownerEmail) {
+        const stmt = db.prepare('SELECT id FROM whatsapp_sessions WHERE owner_email = ? AND status = \'CONNECTED\'');
+        return stmt.all(ownerEmail.toLowerCase()).map(s => s.id);
+    }
+
+    /**
      * Sync database with filesystem
      * Detects session folders that are not in the DB and adds them
      */
