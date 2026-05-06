@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2026-05-06 - [Optimize DB queries for Admin API Stats Dashboard]
+**Learning:** In `src/routes/admin.js`, multiple global statistics from SQLite (like `totalUsers`, `connectedSessions`, `totalCreditsDeducted`) were fetched using sequential synchronous `db.prepare(...).get()` queries. This approach required multiple SQL compilation overheads and sequential database round-trips. Grouping them using subselects inside a single query returns all values at once.
+**Action:** When gathering diverse, independent global statistics from SQLite (e.g., using `better-sqlite3`), bundle multiple aggregations (like `COUNT` or `SUM`) into a single query using subselects (e.g., `SELECT (SELECT COUNT(*) FROM tableA), (SELECT SUM(...) FROM tableB)`) to significantly reduce sequential I/O overhead and compilation time.
