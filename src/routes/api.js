@@ -15,6 +15,7 @@ const xss = require('xss');
 const NodeClam = require('clamscan');
 const User = require('../models/User');
 const { log } = require('../utils/logger');
+const { getUsername } = require('../utils/formatter');
 
 // Initialize ClamAV Scanner
 let clamscan = null;
@@ -232,7 +233,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
                     user = await User.create({
                         id: req.auth.userId,
                         email: finalEmail,
-                        name: req.auth.sessionClaims?.name || req.auth.sessionClaims?.full_name || finalEmail.split('@')[0],
+                        // ⚡ Bolt: Use getUsername instead of split to avoid array allocation
+                        name: req.auth.sessionClaims?.name || req.auth.sessionClaims?.full_name || getUsername(finalEmail),
                         imageUrl: req.auth.sessionClaims?.image_url,
                         role: role,
                         timezone: userTimezone
@@ -242,7 +244,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
                     user = await User.create({
                         id: req.auth.userId,
                         email: finalEmail,
-                        name: req.auth.sessionClaims?.name || req.auth.sessionClaims?.full_name || finalEmail.split('@')[0],
+                        // ⚡ Bolt: Use getUsername instead of split to avoid array allocation
+                        name: req.auth.sessionClaims?.name || req.auth.sessionClaims?.full_name || getUsername(finalEmail),
                         imageUrl: req.auth.sessionClaims?.image_url,
                         role: role,
                         timezone: userTimezone
@@ -371,7 +374,8 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.post('/users/sync', checkSessionOrTokenAuth, async (req, res) => {
         try {
             const { email, id, role } = req.currentUser;
-            const name = req.body.name || req.auth.sessionClaims?.name || email.split('@')[0];
+            // ⚡ Bolt: Use getUsername instead of split to avoid array allocation
+            const name = req.body.name || req.auth.sessionClaims?.name || getUsername(email);
             const imageUrl = req.body.imageUrl || req.auth.sessionClaims?.image_url;
 
             log(`Syncing user ${email} (ID: ${id})`, 'AUTH');

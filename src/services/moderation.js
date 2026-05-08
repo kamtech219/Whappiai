@@ -2,6 +2,7 @@ const { db } = require('../config/database');
 const { jidNormalizedUser } = require('@whiskeysockets/baileys');
 const { Session, ActivityLog, User } = require('../models');
 const { log } = require('../utils/logger');
+const { getUsername } = require('../utils/formatter');
 const CreditService = require('./CreditService');
 const QueueService = require('./QueueService');
 const MemoryCache = require('../utils/cache');
@@ -354,8 +355,9 @@ async function handleParticipantUpdate(sock, sessionId, update) {
             let message = settings.welcome_template;
             
             // Basic variables
+            // ⚡ Bolt: Use getUsername to avoid array allocation for JID parsing and handle missing '@' safely
             message = message
-                .replace(/{{name}}/g, `${jid.split('@')[0]}`)
+                .replace(/{{name}}/g, `${getUsername(jid)}`)
                 .replace(/{{group_name}}/g, groupMetadata.subject)
                 .replace(/{{date}}/g, new Date().toLocaleDateString('fr-FR'))
                 .replace(/{{rules}}/g, profile?.rules || groupMetadata.desc || 'Pas de règles spécifiées.');
@@ -559,8 +561,9 @@ async function handleIncomingMessage(sock, sessionId, msg) {
                         warnings: currentCount
                     }, 'ERROR');
                     await sock.groupParticipantsUpdate(groupId, [senderJid], 'remove');
+                    // ⚡ Bolt: Use getUsername instead of split
                     await QueueService.enqueue(sessionId, sock, groupId, {
-                        text: `@${senderJid.split('@')[0]} a été exclu après ${currentCount} avertissements.`,
+                        text: `@${getUsername(senderJid)} a été exclu après ${currentCount} avertissements.`,
                         mentions: [senderJid]
                     }, { priority: 'high' });
 
@@ -583,8 +586,9 @@ async function handleIncomingMessage(sock, sessionId, msg) {
                     let template = settings.warning_template || 'Attention @{{name}}, avertissement {{count}}/{{max}} pour : {{reason}}.';
                     
                     // Replace variables
+                    // ⚡ Bolt: Use getUsername instead of split
                     const warningMsg = template
-                        .replace(/{{name}}/g, `${senderJid.split('@')[0]}`)
+                        .replace(/{{name}}/g, `${getUsername(senderJid)}`)
                         .replace(/{{count}}/g, currentCount)
                         .replace(/{{max}}/g, maxWarnings)
                         .replace(/{{reason}}/g, violation);
