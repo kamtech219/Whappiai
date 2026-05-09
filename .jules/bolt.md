@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-12-07 - [Optimize DB query preparation for User lookups]
+**Learning:** In \`src/models/User.js\`, the \`findById\` and \`findByEmail\` methods executed \`db.prepare('SELECT ...')\` on every single call. Because these are fundamental lookup methods called extensively throughout the application (auth middleware, session handlers, API endpoints), repeatedly compiling the SQL statement introduces significant synchronous C++ boundary-crossing overhead.
+**Action:** When working with SQLite (\`better-sqlite3\`), always declare prepared statements as file-scoped module variables (e.g., \`let findByIdStmt = null;\`) and initialize them lazily. This single-time preparation reduces CPU cycles and makes fundamental lookups considerably faster without refactoring downstream consumers.
