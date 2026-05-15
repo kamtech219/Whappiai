@@ -14,6 +14,7 @@ const MemoryCache = require('../utils/cache');
 // Simple cache for group metadata to avoid over-fetching
 const groupMetadataCache = new Map();
 const groupSettingsCache = new MemoryCache(300); // 5 min TTL
+let getGroupSettingsStmt;
 
 /**
  * Get group settings with caching
@@ -23,7 +24,10 @@ function getGroupSettings(groupId, sessionId) {
     const cached = groupSettingsCache.get(cacheKey);
     if (cached) return cached;
 
-    const settings = db.prepare('SELECT * FROM group_settings WHERE group_id = ? AND session_id = ?').get(groupId, sessionId);
+    if (!getGroupSettingsStmt) {
+        getGroupSettingsStmt = db.prepare('SELECT * FROM group_settings WHERE group_id = ? AND session_id = ?');
+    }
+    const settings = getGroupSettingsStmt.get(groupId, sessionId);
     if (settings) {
         groupSettingsCache.set(cacheKey, settings);
     }
@@ -644,5 +648,6 @@ module.exports = {
     handleIncomingMessage,
     handleParticipantUpdate,
     isGroupAdmin,
-    getGroupMetadata
+    getGroupMetadata,
+    getGroupSettings
 };
