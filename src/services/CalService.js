@@ -2,6 +2,9 @@ const axios = require('axios');
 const { log } = require('../utils/logger');
 const User = require('../models/User');
 
+const MemoryCache = require('../utils/cache');
+const calCache = new MemoryCache(300); // 5 min TTL
+
 class CalService {
     _clean(val) {
         if (!val) return '';
@@ -178,6 +181,10 @@ class CalService {
      * @param {string} userId
      */
     async getEventTypes(userId) {
+        const cacheKey = `cal_event_types_${userId}`;
+        const cached = calCache.get(cacheKey);
+        if (cached) return cached;
+
         const token = await this.getAccessToken(userId);
         if (!token) return [];
 
@@ -188,7 +195,11 @@ class CalService {
                     'cal-api-version': '2024-08-13'
                 }
             });
-            return response.data?.data || response.data || [];
+            const eventTypes = response.data?.data || response.data || [];
+
+            // ⚡ Bolt: Cache event types to avoid redundant external API calls per AI response
+            calCache.set(cacheKey, eventTypes);
+            return eventTypes;
         } catch (error) {
             log(`CalService getEventTypes error: ${error.message}`, 'SYSTEM', { error: error.response?.data || error.message }, 'ERROR');
             return [];

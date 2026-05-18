@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-05-18 - [Optimize CalService getEventTypes Calls]
+**Learning:** In `src/services/ai.js`, the `CalService.getEventTypes` function is called multiple times per AI response to fetch the list of event types (for instance, once for checking availability, once for booking, and once during prompt injection). By default, this triggers multiple external synchronous network requests to Cal.com API for each AI interaction, which creates a noticeable performance lag.
+**Action:** Introduced a `MemoryCache` inside `CalService.getEventTypes` with a TTL of 5 minutes. This prevents redundant external network requests within the same AI response session or in short succession, significantly reducing latency and protecting the external API rate limit.
