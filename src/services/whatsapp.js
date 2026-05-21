@@ -686,7 +686,8 @@ async function connect(sessionId, onUpdate, onMessage, phoneNumber = null) {
                 // Determine if we should force group mode based on moderation settings
                 let forceGroupMode = false;
                 if (isGroup) {
-                    const settings = db.prepare('SELECT ai_assistant_enabled FROM group_settings WHERE group_id = ? AND session_id = ?').get(remoteJid, sessionId);
+                    // ⚡ Bolt: Use cached moderationService.getGroupSettings instead of uncached synchronous DB query on every incoming group message
+                    const settings = moderationService.getGroupSettings(remoteJid, sessionId);
                     if (settings?.ai_assistant_enabled) {
                         forceGroupMode = true;
                     }
