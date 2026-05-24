@@ -14,6 +14,17 @@ const { db } = require('../config/database');
 const stringSimilarity = require('string-similarity');
 const i18n = require('../utils/i18n');
 
+// ⚡ Bolt: Define forbidden words at the module level and pre-compile a single case-insensitive Regex
+// to avoid repetitive array allocations and string manipulations on every incoming message.
+const FORBIDDEN_WORDS = [
+    'mot_interdit_1', 'mot_interdit_2', // Examples
+    'ignore toutes les instructions',
+    'ignore previous instructions'
+];
+// Escape special regex characters in the forbidden words
+const escapedWords = FORBIDDEN_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+const FORBIDDEN_WORDS_REGEX = new RegExp(`(${escapedWords.join('|')})`, 'i');
+
 // Memory-only flags to temporarily pause AI for specific conversations
 const pausedConversations = new Map();
 const botReadHistory = new Set(); // Track messages read by the bot itself
@@ -800,23 +811,8 @@ class AIService {
      */
     static isContentSafe(content) {
         if (!content) return true;
-
-        // Basic list of forbidden patterns or words (can be extended or fetched from DB)
-        // Here we put a basic generic list of inappropriate words/patterns or safety checks
-        const forbiddenWords = [
-            'mot_interdit_1', 'mot_interdit_2', // Examples
-            // We can add actual sensitive terms if needed, but for now a placeholder list
-            'ignore toutes les instructions',
-            'ignore previous instructions'
-        ];
-
-        const lowerContent = content.toLowerCase();
-        for (const word of forbiddenWords) {
-            if (lowerContent.includes(word)) {
-                return false;
-            }
-        }
-        return true;
+        // ⚡ Bolt: Optimized content safety check using a single pre-compiled Regex
+        return !FORBIDDEN_WORDS_REGEX.test(content);
     }
 
     static async callAI(user, userMessage, systemPrompt = null, history = []) {
