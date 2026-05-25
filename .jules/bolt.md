@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2025-01-20 - [Optimize isContentSafe check]
+**Learning:** Checking for forbidden words inside `isContentSafe` previously allocated an array of strings, converted the entire content string to lowercase, and looped over the array checking `includes()` on every single AI response. This approach caused redundant allocations and execution overhead for every message processed.
+**Action:** When filtering or validating text against a fixed set of keywords, pre-compile a single case-insensitive regular expression (escaping special characters) at module load time. Using `Regex.test(content)` avoids repeated allocations, avoids the need for full-string `toLowerCase()`, and offloads the matching entirely to the fast internal RegExp engine.

@@ -22,6 +22,17 @@ const lastOwnerActivity = new Map(); // Track last activity from the owner per J
 const pendingRetries = new Map(); // Track messages ignored by random protection for later retry
 const aiResponseHistory = new Map(); // Track AI response timestamps for loop protection
 
+const FORBIDDEN_WORDS = [
+    'mot_interdit_1', 'mot_interdit_2', // Examples
+    // We can add actual sensitive terms if needed, but for now a placeholder list
+    'ignore toutes les instructions',
+    'ignore previous instructions'
+];
+
+const FORBIDDEN_WORDS_REGEX = FORBIDDEN_WORDS.length > 0
+    ? new RegExp(FORBIDDEN_WORDS.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i')
+    : null;
+
 class AIService {
     /**
      * Record owner activity to prevent AI from interfering in a live conversation
@@ -799,24 +810,11 @@ class AIService {
      * @returns {boolean} - True if content is safe, False otherwise
      */
     static isContentSafe(content) {
-        if (!content) return true;
+        if (!content || !FORBIDDEN_WORDS_REGEX) return true;
 
-        // Basic list of forbidden patterns or words (can be extended or fetched from DB)
-        // Here we put a basic generic list of inappropriate words/patterns or safety checks
-        const forbiddenWords = [
-            'mot_interdit_1', 'mot_interdit_2', // Examples
-            // We can add actual sensitive terms if needed, but for now a placeholder list
-            'ignore toutes les instructions',
-            'ignore previous instructions'
-        ];
-
-        const lowerContent = content.toLowerCase();
-        for (const word of forbiddenWords) {
-            if (lowerContent.includes(word)) {
-                return false;
-            }
-        }
-        return true;
+        // ⚡ Bolt: Optimize content safety check by using a pre-compiled regex
+        // avoiding repeated array allocations and string lowercasing operations.
+        return !FORBIDDEN_WORDS_REGEX.test(content);
     }
 
     static async callAI(user, userMessage, systemPrompt = null, history = []) {
