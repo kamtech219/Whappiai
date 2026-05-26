@@ -16,6 +16,16 @@ const i18n = require('../utils/i18n');
 
 // Memory-only flags to temporarily pause AI for specific conversations
 const pausedConversations = new Map();
+
+// ⚡ Bolt: Pre-compile forbidden words into a single Regex to avoid repetitive array allocation and looping per message
+const FORBIDDEN_WORDS = [
+    'mot_interdit_1', 'mot_interdit_2', // Examples
+    // We can add actual sensitive terms if needed, but for now a placeholder list
+    'ignore toutes les instructions',
+    'ignore previous instructions'
+];
+const FORBIDDEN_WORDS_REGEX = new RegExp(FORBIDDEN_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
+
 const botReadHistory = new Set(); // Track messages read by the bot itself
 const botSentHistory = new Set(); // Track messages sent by the bot itself
 const lastOwnerActivity = new Map(); // Track last activity from the owner per JID
@@ -801,22 +811,8 @@ class AIService {
     static isContentSafe(content) {
         if (!content) return true;
 
-        // Basic list of forbidden patterns or words (can be extended or fetched from DB)
-        // Here we put a basic generic list of inappropriate words/patterns or safety checks
-        const forbiddenWords = [
-            'mot_interdit_1', 'mot_interdit_2', // Examples
-            // We can add actual sensitive terms if needed, but for now a placeholder list
-            'ignore toutes les instructions',
-            'ignore previous instructions'
-        ];
-
-        const lowerContent = content.toLowerCase();
-        for (const word of forbiddenWords) {
-            if (lowerContent.includes(word)) {
-                return false;
-            }
-        }
-        return true;
+        // ⚡ Bolt: Uses the pre-compiled Regex instead of O(N) array iteration and lowercasing
+        return !FORBIDDEN_WORDS_REGEX.test(content);
     }
 
     static async callAI(user, userMessage, systemPrompt = null, history = []) {
