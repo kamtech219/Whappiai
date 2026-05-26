@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-05-26 - [Optimize AI Content Safety Check]
+**Learning:** In `src/services/ai.js`, `isContentSafe` previously allocated an array of `forbiddenWords` and used a `for...of` loop with `String.prototype.includes` to check content against each word, alongside a full `String.prototype.toLowerCase()` conversion on the incoming text on every single message moderation pass.
+**Action:** To optimize repeated text analysis, always prefer module-level pre-compiled regex arrays (e.g. `new RegExp(words.join('|'), 'i')`). This avoids redundant array allocation and manual string scanning/lowercasing for O(1) matching performance in hot paths.
