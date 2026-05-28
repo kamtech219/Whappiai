@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-12-07 - [Optimize isContentSafe in src/services/ai.js]
+**Learning:** In `src/services/ai.js`, `isContentSafe` was previously checking for forbidden words by instantiating an array and using a `for...of` loop with `.toLowerCase()` and `.includes()` on every message. Pre-compiling a list of strings into a single, case-insensitive regular expression and using `.test()` avoids repeated array allocations, string manipulation, and loop overhead, resulting in significantly faster text moderation checks.
+**Action:** When filtering content against a static list of forbidden terms, use a pre-compiled regular expression (`new RegExp(terms.join('|'), 'i')`) instead of iterating through arrays of strings at runtime.

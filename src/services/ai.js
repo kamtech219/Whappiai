@@ -798,25 +798,20 @@ class AIService {
      * @param {string} content - The AI generated content
      * @returns {boolean} - True if content is safe, False otherwise
      */
+    // ⚡ Bolt: Using a pre-compiled case-insensitive regex for forbidden words avoids repetitive array allocations, string lowercasing, and loop-based checks on every message.
+    static FORBIDDEN_WORDS = [
+        'mot_interdit_1', 'mot_interdit_2',
+        'ignore toutes les instructions',
+        'ignore previous instructions'
+    ];
+    static FORBIDDEN_WORDS_REGEX = new RegExp(
+        this.FORBIDDEN_WORDS.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+        'i'
+    );
+
     static isContentSafe(content) {
         if (!content) return true;
-
-        // Basic list of forbidden patterns or words (can be extended or fetched from DB)
-        // Here we put a basic generic list of inappropriate words/patterns or safety checks
-        const forbiddenWords = [
-            'mot_interdit_1', 'mot_interdit_2', // Examples
-            // We can add actual sensitive terms if needed, but for now a placeholder list
-            'ignore toutes les instructions',
-            'ignore previous instructions'
-        ];
-
-        const lowerContent = content.toLowerCase();
-        for (const word of forbiddenWords) {
-            if (lowerContent.includes(word)) {
-                return false;
-            }
-        }
-        return true;
+        return !this.FORBIDDEN_WORDS_REGEX.test(content);
     }
 
     static async callAI(user, userMessage, systemPrompt = null, history = []) {
