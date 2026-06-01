@@ -14,6 +14,16 @@ const { db } = require('../config/database');
 const stringSimilarity = require('string-similarity');
 const i18n = require('../utils/i18n');
 
+const FORBIDDEN_WORDS = [
+    'mot_interdit_1', 'mot_interdit_2', // Examples
+    'ignore toutes les instructions',
+    'ignore previous instructions'
+];
+const FORBIDDEN_WORDS_REGEX = new RegExp(
+    FORBIDDEN_WORDS.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+    'i'
+);
+
 // Memory-only flags to temporarily pause AI for specific conversations
 const pausedConversations = new Map();
 const botReadHistory = new Set(); // Track messages read by the bot itself
@@ -800,23 +810,8 @@ class AIService {
      */
     static isContentSafe(content) {
         if (!content) return true;
-
-        // Basic list of forbidden patterns or words (can be extended or fetched from DB)
-        // Here we put a basic generic list of inappropriate words/patterns or safety checks
-        const forbiddenWords = [
-            'mot_interdit_1', 'mot_interdit_2', // Examples
-            // We can add actual sensitive terms if needed, but for now a placeholder list
-            'ignore toutes les instructions',
-            'ignore previous instructions'
-        ];
-
-        const lowerContent = content.toLowerCase();
-        for (const word of forbiddenWords) {
-            if (lowerContent.includes(word)) {
-                return false;
-            }
-        }
-        return true;
+        // ⚡ Bolt: Using a pre-compiled, case-insensitive RegExp instead of allocating an array and converting content to lowercase on every call avoids repetitive memory allocation and loop overhead
+        return !FORBIDDEN_WORDS_REGEX.test(content);
     }
 
     static async callAI(user, userMessage, systemPrompt = null, history = []) {
