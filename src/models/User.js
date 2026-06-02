@@ -8,6 +8,10 @@ const bcrypt = require('../utils/bcrypt-compat');
 const { log } = require('../utils/logger');
 const crypto = require('crypto');
 
+// ⚡ Bolt: Cache prepared statements for frequently called read methods to avoid repeated compilation overhead.
+let findByIdStmt;
+let findByEmailStmt;
+
 class User {
     /**
      * Create or Update a user from Clerk
@@ -87,8 +91,8 @@ class User {
     static findById(id) {
         if (!id) return null;
         
-        const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-        const user = stmt.get(id);
+        if (!findByIdStmt) findByIdStmt = db.prepare('SELECT * FROM users WHERE id = ?');
+        const user = findByIdStmt.get(id);
         
         if (!user && id === 'legacy-admin') {
             const adminUser = this.findByEmail('admin@localhost');
@@ -105,8 +109,8 @@ class User {
      */
     static findByEmail(email) {
         if (!email) return null;
-        const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-        return stmt.get(email.toLowerCase());
+        if (!findByEmailStmt) findByEmailStmt = db.prepare('SELECT * FROM users WHERE email = ?');
+        return findByEmailStmt.get(email.toLowerCase());
     }
 
     /**
