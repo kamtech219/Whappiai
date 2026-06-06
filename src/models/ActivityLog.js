@@ -6,6 +6,9 @@
 const { db } = require('../config/database');
 const { log } = require('../utils/logger');
 
+// ⚡ Bolt: Cache the prepared statement in a module-scoped variable to avoid repetitive compilation overhead in this high-frequency logging method, and to ensure it works even if destructured.
+let cachedInsertStmt = null;
+
 class ActivityLog {
     /**
      * Log an activity
@@ -13,13 +16,15 @@ class ActivityLog {
      * @returns {object} Created log entry
      */
     static log(data) {
-        const stmt = db.prepare(`
-            INSERT INTO activity_logs (
-                user_email, action, resource, resource_id, details, ip, user_agent, success, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `);
+        if (!cachedInsertStmt) {
+            cachedInsertStmt = db.prepare(`
+                INSERT INTO activity_logs (
+                    user_email, action, resource, resource_id, details, ip, user_agent, success, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            `);
+        }
 
-        const result = stmt.run(
+        const result = cachedInsertStmt.run(
             data.userEmail || null,
             data.action,
             data.resource || null,

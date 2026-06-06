@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-05-24 - [Optimize ActivityLog insertions]
+**Learning:** In `src/models/ActivityLog.js`, the `log()` method compiles an `INSERT` statement via `db.prepare(...)` on every single invocation. Since logging is a high-frequency operation called across the entire application (message sends, session creation, logins), repeatedly compiling the same SQLite statement adds unnecessary overhead and crosses the JS/C++ boundary redundantly.
+**Action:** When working with `better-sqlite3`, cache prepared statements for frequently executed queries at the module or class level to avoid compilation overhead.
