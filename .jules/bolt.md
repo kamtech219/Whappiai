@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-05-24 - [Optimize DB queries for Admin Stats]
+**Learning:** In `src/routes/admin.js`, the `GET /stats` endpoint executed 6 separate sequential scalar queries (e.g., `SELECT COUNT(*) FROM users`, `SELECT SUM(amount)...`) to gather platform-wide statistics. Sequential scalar queries in Node/SQLite introduce significant JS/C++ boundary-crossing overhead and sequential database I/O, which is a performance anti-pattern.
+**Action:** When gathering diverse, independent global statistics from SQLite, bundle multiple aggregations into a single query using subselects (e.g., `SELECT (SELECT COUNT(*) FROM users) as users, (SELECT COUNT(*) FROM sessions) as sessions`). Use `COALESCE(SUM(...), 0)` to safely handle empty tables.
