@@ -9,3 +9,7 @@
 ## 2024-12-06 - [Optimize DB queries for API Stats Dashboard]
 **Learning:** In \`src/models/ActivityLog.js\` the \`getSummary\` method executed 4 separate sequential queries to retrieve summary analytics for the dashboard (total activities, grouped actions, grouped users, success counts). Grouping on multiple independent dimensions required multiple full table scans using \`COUNT\` or reducing massive row objects in JS.
 **Action:** Replaced sequential DB calls with a single optimized SQLite query leveraging \`COUNT(*)\` and \`SUM(CASE WHEN ...)\` combined with a multi-column \`GROUP BY action, user_email\`. In SQLite, fetching a aggregated payload and parsing it reduces I/O round trips considerably and prevents JS memory bloat from fetching raw logs.
+
+## 2024-05-18 - SQLite JS/C++ Boundary Optimization
+**Learning:** In better-sqlite3, crossing the JS/C++ boundary has a non-negligible cost. When collecting multiple independent statistics (like counts or sums from different tables), making individual `db.prepare(...).get()` calls accumulates this overhead rapidly.
+**Action:** Always combine independent aggregate queries into a single query using subselects (e.g., `SELECT (SELECT COUNT(*) FROM a), (SELECT COUNT(*) FROM b)`) and cache the prepared statement. This significantly minimizes boundary crossings and compilation overhead.
