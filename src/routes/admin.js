@@ -12,6 +12,29 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const response = require('../utils/response');
 const { db } = require('../config/database');
 
+// ⚡ Bolt: Bundle 6 sequential global aggregation queries into a single query with subselects
+// and COALESCE(SUM(), 0) to avoid Javascript `|| 0` fallback.
+// This significantly reduces C++/JS boundary-crossing overhead and SQLite query compilation time.
+const getGlobalStatsStmt = db.prepare(`
+    SELECT
+        (SELECT COUNT(*) FROM users) as totalUsers,
+        (SELECT COUNT(*) FROM users WHERE is_active = 1) as activeUsers,
+        (SELECT COUNT(*) FROM whatsapp_sessions) as totalSessions,
+        (SELECT COUNT(*) FROM whatsapp_sessions WHERE status = 'CONNECTED') as connectedSessions,
+        (SELECT COALESCE(SUM(amount), 0) FROM credit_history WHERE type = 'debit') as totalCreditsDeducted,
+        (SELECT COALESCE(SUM(amount), 0) FROM credit_history WHERE type = 'purchase') as totalCreditsPurchased
+`);
+
+const getAiStatsStmt = db.prepare(`
+    SELECT
+        ai_model as model,
+        SUM(ai_messages_sent) as sent,
+        SUM(ai_messages_received) as received
+    FROM whatsapp_sessions
+    WHERE ai_model IS NOT NULL
+    GROUP BY ai_model
+`);
+
 /**
  * GET /api/v1/admin/stats
  * Platform-wide statistics for the admin dashboard
@@ -22,28 +45,11 @@ router.get('/stats', requireAdmin, asyncHandler(async (req, res) => {
     // 1. Global Activity Summary
     const summary = ActivityLog.getSummary(null, days);
 
-    // 2. User Statistics
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const activeUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE is_active = 1").get().count;
-
-    // 3. Session Statistics
-    const totalSessions = db.prepare('SELECT COUNT(*) as count FROM whatsapp_sessions').get().count;
-    const connectedSessions = db.prepare("SELECT COUNT(*) as count FROM whatsapp_sessions WHERE status = 'CONNECTED'").get().count;
-
-    // 4. Financial/Credit Statistics
-    const totalCreditsDeducted = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'debit'").get().total || 0;
-    const totalCreditsPurchased = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'purchase'").get().total || 0;
+    // 2-4. User, Session, and Financial Statistics (Bundled)
+    const stats = getGlobalStatsStmt.get();
 
     // 5. AI Usage Stats
-    const aiStats = db.prepare(`
-        SELECT
-            ai_model as model,
-            SUM(ai_messages_sent) as sent,
-            SUM(ai_messages_received) as received
-        FROM whatsapp_sessions
-        WHERE ai_model IS NOT NULL
-        GROUP BY ai_model
-    `).all();
+    const aiStats = getAiStatsStmt.all();
 
     return response.success(res, {
         overview: {
@@ -52,16 +58,16 @@ router.get('/stats', requireAdmin, asyncHandler(async (req, res) => {
             messagesSent: summary.byAction?.send_message || 0,
         },
         users: {
-            total: totalUsers,
-            active: activeUsers
+            total: stats.totalUsers,
+            active: stats.activeUsers
         },
         sessions: {
-            total: totalSessions,
-            connected: connectedSessions
+            total: stats.totalSessions,
+            connected: stats.connectedSessions
         },
         credits: {
-            deducted: totalCreditsDeducted,
-            purchased: totalCreditsPurchased
+            deducted: stats.totalCreditsDeducted,
+            purchased: stats.totalCreditsPurchased
         },
         ai: aiStats
     });
