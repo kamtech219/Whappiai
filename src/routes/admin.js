@@ -22,17 +22,16 @@ router.get('/stats', requireAdmin, asyncHandler(async (req, res) => {
     // 1. Global Activity Summary
     const summary = ActivityLog.getSummary(null, days);
 
-    // 2. User Statistics
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const activeUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE is_active = 1").get().count;
-
-    // 3. Session Statistics
-    const totalSessions = db.prepare('SELECT COUNT(*) as count FROM whatsapp_sessions').get().count;
-    const connectedSessions = db.prepare("SELECT COUNT(*) as count FROM whatsapp_sessions WHERE status = 'CONNECTED'").get().count;
-
-    // 4. Financial/Credit Statistics
-    const totalCreditsDeducted = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'debit'").get().total || 0;
-    const totalCreditsPurchased = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'purchase'").get().total || 0;
+    // ⚡ Bolt: Bundled 6 independent aggregate queries into a single subselect query to minimize JS/C++ boundary overhead and prevent sequential I/O blocking.
+    const stats = db.prepare(`
+        SELECT
+            (SELECT COUNT(*) FROM users) as totalUsers,
+            (SELECT COUNT(*) FROM users WHERE is_active = 1) as activeUsers,
+            (SELECT COUNT(*) FROM whatsapp_sessions) as totalSessions,
+            (SELECT COUNT(*) FROM whatsapp_sessions WHERE status = 'CONNECTED') as connectedSessions,
+            (SELECT COALESCE(SUM(amount), 0) FROM credit_history WHERE type = 'debit') as totalCreditsDeducted,
+            (SELECT COALESCE(SUM(amount), 0) FROM credit_history WHERE type = 'purchase') as totalCreditsPurchased
+    `).get();
 
     // 5. AI Usage Stats
     const aiStats = db.prepare(`
@@ -52,16 +51,16 @@ router.get('/stats', requireAdmin, asyncHandler(async (req, res) => {
             messagesSent: summary.byAction?.send_message || 0,
         },
         users: {
-            total: totalUsers,
-            active: activeUsers
+            total: stats.totalUsers,
+            active: stats.activeUsers
         },
         sessions: {
-            total: totalSessions,
-            connected: connectedSessions
+            total: stats.totalSessions,
+            connected: stats.connectedSessions
         },
         credits: {
-            deducted: totalCreditsDeducted,
-            purchased: totalCreditsPurchased
+            deducted: stats.totalCreditsDeducted,
+            purchased: stats.totalCreditsPurchased
         },
         ai: aiStats
     });
