@@ -22,17 +22,28 @@ router.get('/stats', requireAdmin, asyncHandler(async (req, res) => {
     // 1. Global Activity Summary
     const summary = ActivityLog.getSummary(null, days);
 
+    // ⚡ Bolt: Bundled 6 independent aggregate queries into a single query to eliminate sequential I/O and JS/C++ boundary-crossing overhead.
+    const statsQuery = db.prepare(`
+        SELECT
+            (SELECT COUNT(*) FROM users) as totalUsers,
+            (SELECT COUNT(*) FROM users WHERE is_active = 1) as activeUsers,
+            (SELECT COUNT(*) FROM whatsapp_sessions) as totalSessions,
+            (SELECT COUNT(*) FROM whatsapp_sessions WHERE status = 'CONNECTED') as connectedSessions,
+            (SELECT COALESCE(SUM(amount), 0) FROM credit_history WHERE type = 'debit') as totalCreditsDeducted,
+            (SELECT COALESCE(SUM(amount), 0) FROM credit_history WHERE type = 'purchase') as totalCreditsPurchased
+    `).get();
+
     // 2. User Statistics
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const activeUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE is_active = 1").get().count;
+    const totalUsers = statsQuery.totalUsers;
+    const activeUsers = statsQuery.activeUsers;
 
     // 3. Session Statistics
-    const totalSessions = db.prepare('SELECT COUNT(*) as count FROM whatsapp_sessions').get().count;
-    const connectedSessions = db.prepare("SELECT COUNT(*) as count FROM whatsapp_sessions WHERE status = 'CONNECTED'").get().count;
+    const totalSessions = statsQuery.totalSessions;
+    const connectedSessions = statsQuery.connectedSessions;
 
     // 4. Financial/Credit Statistics
-    const totalCreditsDeducted = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'debit'").get().total || 0;
-    const totalCreditsPurchased = db.prepare("SELECT SUM(amount) as total FROM credit_history WHERE type = 'purchase'").get().total || 0;
+    const totalCreditsDeducted = statsQuery.totalCreditsDeducted;
+    const totalCreditsPurchased = statsQuery.totalCreditsPurchased;
 
     // 5. AI Usage Stats
     const aiStats = db.prepare(`
